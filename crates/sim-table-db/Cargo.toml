@@ -1,0 +1,22 @@
+[package]
+name = "sim-table-db"
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+description = "SIM workspace package for sim table db."
+readme = "README.md"
+publish = true
+repository = "https://github.com/sim-nest/sim-storage"
+homepage = "https://github.com/sim-nest/sim-storage"
+
+[dependencies]
+sim-citizen = { version = "0.1.0" }
+sim-citizen-derive = { version = "0.1.0" }
+sim-kernel = { version = "0.1.0" }
+sim-table-core = { version = "0.1.0" }
+
+[dev-dependencies]
+sim-test-support = { version = "0.1.0" }
+
+[lints]
+workspace = true

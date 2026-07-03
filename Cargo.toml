@@ -1,0 +1,21 @@
+
+[workspace]
+resolver = "3"
+members = [
+  "crates/sim-list-cell",
+  "crates/sim-list-lazy",
+  "crates/sim-table-db",
+  "crates/sim-table-hash",
+  "crates/sim-table-lazy",
+  "crates/sim-table-override",
+  "xtask",
+]
+
+[workspace.package]
+edition = "2024"
+license = "MPL-2.0"
+repository = "https://github.com/sim-nest/sim-storage"
+homepage = "https://github.com/sim-nest/sim-storage"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
