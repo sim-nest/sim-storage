@@ -7,9 +7,9 @@ SIM workspace package for sim list cell.
 ## Package Metadata
 
 - Manifest: `crates/sim-list-cell/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim list cell.
+Cell-based list backend for the SIM constellation.

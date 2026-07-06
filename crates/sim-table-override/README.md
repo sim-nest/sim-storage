@@ -7,9 +7,9 @@ SIM workspace package for sim table override.
 ## Package Metadata
 
 - Manifest: `crates/sim-table-override/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim table override.
+Override (overlay) table backend for the SIM constellation.

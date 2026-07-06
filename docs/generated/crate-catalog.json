@@ -1,0 +1,90 @@
+{
+  "generator": "xtask crate-catalog v1",
+  "package_count": 7,
+  "packages": [
+    {
+      "description": "SIM workspace package for sim list cell.",
+      "generated_readme": true,
+      "manifest": "crates/sim-list-cell/Cargo.toml",
+      "name": "sim-list-cell",
+      "publish": "true",
+      "readme": "crates/sim-list-cell/README.md",
+      "root": "crates/sim-list-cell",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim list lazy.",
+      "generated_readme": true,
+      "manifest": "crates/sim-list-lazy/Cargo.toml",
+      "name": "sim-list-lazy",
+      "publish": "true",
+      "readme": "crates/sim-list-lazy/README.md",
+      "root": "crates/sim-list-lazy",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim table db.",
+      "generated_readme": true,
+      "manifest": "crates/sim-table-db/Cargo.toml",
+      "name": "sim-table-db",
+      "publish": "true",
+      "readme": "crates/sim-table-db/README.md",
+      "root": "crates/sim-table-db",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim table hash.",
+      "generated_readme": true,
+      "manifest": "crates/sim-table-hash/Cargo.toml",
+      "name": "sim-table-hash",
+      "publish": "true",
+      "readme": "crates/sim-table-hash/README.md",
+      "root": "crates/sim-table-hash",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim table lazy.",
+      "generated_readme": true,
+      "manifest": "crates/sim-table-lazy/Cargo.toml",
+      "name": "sim-table-lazy",
+      "publish": "true",
+      "readme": "crates/sim-table-lazy/README.md",
+      "root": "crates/sim-table-lazy",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim table override.",
+      "generated_readme": true,
+      "manifest": "crates/sim-table-override/Cargo.toml",
+      "name": "sim-table-override",
+      "publish": "true",
+      "readme": "crates/sim-table-override/README.md",
+      "root": "crates/sim-table-override",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for xtask.",
+      "generated_readme": true,
+      "manifest": "xtask/Cargo.toml",
+      "name": "xtask",
+      "publish": "false",
+      "readme": "xtask/README.md",
+      "root": "xtask",
+      "target_kinds": [
+        "bin"
+      ]
+    }
+  ]
+}

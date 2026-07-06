@@ -7,9 +7,9 @@ SIM workspace package for sim table db.
 ## Package Metadata
 
 - Manifest: `crates/sim-table-db/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim table db.
+Db-backed table backend for the SIM constellation.

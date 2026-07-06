@@ -7,9 +7,9 @@ SIM workspace package for sim list lazy.
 ## Package Metadata
 
 - Manifest: `crates/sim-list-lazy/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim list lazy.
+Lazy list backend for the SIM constellation.

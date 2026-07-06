@@ -7,9 +7,9 @@ SIM workspace package for sim table hash.
 ## Package Metadata
 
 - Manifest: `crates/sim-table-hash/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim table hash.
+Hash-map table backend for the SIM constellation.
