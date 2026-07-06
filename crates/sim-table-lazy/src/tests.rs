@@ -9,7 +9,7 @@ use sim_kernel::{
 };
 
 use crate::{
-    LazyBackend, LazyTable, LazyTableDescriptor, ValueLoader, install_lazy_table_lib,
+    LazyBackend, LazyTable, LazyTableDescriptor, LazyTableLib, ValueLoader, install_lazy_table_lib,
     lazy_table_class_symbol,
 };
 
@@ -146,6 +146,30 @@ fn install_registers_lazy_backend() {
     assert_eq!(cx.table_registry().active(), "lazy");
     let name = <LazyBackend as sim_kernel::TableBackend>::name(&LazyBackend);
     assert_eq!(name, "lazy");
+}
+
+#[test]
+fn install_is_idempotent_and_manifest_is_stable() {
+    use sim_kernel::Lib;
+
+    let mut cx = test_cx();
+    let lib_id = Symbol::qualified("table", "lazy");
+
+    // First install registers the backend and the loadable lib.
+    assert!(cx.registry().lib(&lib_id).is_none());
+    install_lazy_table_lib(&mut cx).unwrap();
+    assert!(cx.registry().lib(&lib_id).is_some());
+
+    // Second install is a no-op: it returns early because the lib is present.
+    install_lazy_table_lib(&mut cx).unwrap();
+    assert!(cx.registry().lib(&lib_id).is_some());
+
+    // The manifest identity/version comes from the shared constructor and is
+    // stable across calls.
+    let manifest = LazyTableLib.manifest();
+    assert_eq!(manifest.id, lib_id);
+    assert_eq!(manifest.version.0, env!("CARGO_PKG_VERSION"));
+    assert_eq!(LazyTableLib.manifest().version.0, manifest.version.0);
 }
 
 #[test]

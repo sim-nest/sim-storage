@@ -4,10 +4,7 @@
 
 use std::sync::Arc;
 
-use sim_kernel::{
-    AbiVersion, Cx, Dependency, Export, Lib, LibManifest, LibTarget, Linker, Result, Symbol,
-    TableBackend, Value, Version,
-};
+use sim_kernel::{Cx, Lib, LibManifest, Linker, Result, Symbol, TableBackend, Value};
 
 use crate::HashTable;
 
@@ -38,15 +35,10 @@ pub struct HashTableLib;
 
 impl Lib for HashTableLib {
     fn manifest(&self) -> LibManifest {
-        LibManifest {
-            id: Symbol::qualified("table", "hash"),
-            version: Version(env!("CARGO_PKG_VERSION").to_owned()),
-            abi: AbiVersion { major: 0, minor: 1 },
-            target: LibTarget::HostRegistered,
-            requires: Vec::<Dependency>::new(),
-            capabilities: Vec::new(),
-            exports: Vec::<Export>::new(),
-        }
+        sim_table_core::backend_manifest(
+            Symbol::qualified("table", "hash"),
+            env!("CARGO_PKG_VERSION"),
+        )
     }
 
     fn load(&self, _cx: &mut sim_kernel::LoadCx, _linker: &mut Linker<'_>) -> Result<()> {

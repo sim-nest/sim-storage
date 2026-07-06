@@ -102,6 +102,9 @@ fn ensure_list_tail(value: &Value) -> Result<()> {
 pub struct LazyListLib;
 
 impl Lib for LazyListLib {
+    // Empty-manifest boilerplate is intentionally local: unlike the table
+    // backends (which share sim_table_core::backend_manifest), the list crates
+    // have no shared list-core owner yet, so a table-crate dep would be wrong.
     fn manifest(&self) -> LibManifest {
         LibManifest {
             id: Symbol::qualified("list", "lazy"),

@@ -51,6 +51,9 @@ impl ListBackend for ConsBackend {
 pub struct ConsListLib;
 
 impl Lib for ConsListLib {
+    // Empty-manifest boilerplate is intentionally local: unlike the table
+    // backends (which share sim_table_core::backend_manifest), the list crates
+    // have no shared list-core owner yet, so a table-crate dep would be wrong.
     fn manifest(&self) -> LibManifest {
         LibManifest {
             id: Symbol::qualified("list", "cons"),

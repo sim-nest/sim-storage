@@ -5,7 +5,8 @@ use sim_kernel::{
 };
 
 use crate::{
-    HashBackend, HashTable, HashTableDescriptor, hash_table_class_symbol, install_hash_table_lib,
+    HashBackend, HashTable, HashTableDescriptor, HashTableLib, hash_table_class_symbol,
+    install_hash_table_lib,
 };
 
 fn test_cx() -> Cx {
@@ -38,6 +39,30 @@ fn install_registers_hash_backend() {
 
     let name = <HashBackend as sim_kernel::TableBackend>::name(&HashBackend);
     assert_eq!(name, "hash");
+}
+
+#[test]
+fn install_is_idempotent_and_manifest_is_stable() {
+    use sim_kernel::Lib;
+
+    let mut cx = test_cx();
+    let lib_id = Symbol::qualified("table", "hash");
+
+    // First install registers the backend and the loadable lib.
+    assert!(cx.registry().lib(&lib_id).is_none());
+    install_hash_table_lib(&mut cx).unwrap();
+    assert!(cx.registry().lib(&lib_id).is_some());
+
+    // Second install is a no-op: it returns early because the lib is present.
+    install_hash_table_lib(&mut cx).unwrap();
+    assert!(cx.registry().lib(&lib_id).is_some());
+
+    // The manifest identity/version comes from the shared constructor and is
+    // stable across calls.
+    let manifest = HashTableLib.manifest();
+    assert_eq!(manifest.id, lib_id);
+    assert_eq!(manifest.version.0, env!("CARGO_PKG_VERSION"));
+    assert_eq!(HashTableLib.manifest().version.0, manifest.version.0);
 }
 
 #[test]
