@@ -16,3 +16,6 @@ sim-kernel = { version = "0.1.0" }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+sim-kernel = { version = "0.1.0", features = ["test-support"] }
