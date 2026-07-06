@@ -195,15 +195,22 @@ impl Table for HashTable {
     }
 
     fn keys(&self, _cx: &mut Cx) -> Result<Vec<Symbol>> {
-        Ok(self.read()?.keys().cloned().collect())
+        // Sort so iteration order is deterministic across runs, matching the
+        // sorted encoder (`descriptor_entries`) and the other table backends;
+        // a raw `HashMap` iteration leaks nondeterministic order.
+        let mut keys: Vec<Symbol> = self.read()?.keys().cloned().collect();
+        keys.sort();
+        Ok(keys)
     }
 
     fn entries(&self, _cx: &mut Cx) -> Result<Vec<(Symbol, Value)>> {
-        Ok(self
+        let mut entries: Vec<(Symbol, Value)> = self
             .read()?
             .iter()
             .map(|(key, value)| (key.clone(), value.clone()))
-            .collect())
+            .collect();
+        entries.sort_by(|left, right| left.0.cmp(&right.0));
+        Ok(entries)
     }
 
     fn len(&self, _cx: &mut Cx) -> Result<usize> {

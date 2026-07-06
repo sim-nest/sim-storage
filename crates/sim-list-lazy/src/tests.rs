@@ -268,6 +268,108 @@ fn iter_backend_cons_preserves_lazy_tail() {
     assert_eq!(pulls.load(AtomicOrdering::SeqCst), 1);
 }
 
+/// A minimal marker object so a test can share one backing allocation across
+/// every list slot and read its `Arc` strong count as a retention probe.
+struct Marker;
+
+impl sim_kernel::Object for Marker {
+    fn display(&self, _cx: &mut Cx) -> sim_kernel::Result<String> {
+        Ok("marker".to_owned())
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl sim_kernel::ObjectCompat for Marker {}
+
+#[test]
+fn finite_chain_retention_is_linear_not_quadratic() {
+    // Regression guard for the O(n^2) retention that per-node `tail.to_vec()`
+    // clones caused. Every slot is a clone of one shared object, so the strong
+    // count of its backing `Arc` reflects how many copies the fully forced list
+    // retains. The shared-slice design keeps that count O(n); the old design
+    // retained ~n^2/2 copies (each forced node held a clone of its whole tail).
+    let mut cx = test_cx();
+    let n = 1_000usize;
+    let obj = Arc::new(Marker);
+    let items: Vec<Value> = (0..n)
+        .map(|_| cx.factory().opaque(obj.clone()).unwrap())
+        .collect();
+    let value = LazyBackend.new_list(&mut cx, items).unwrap();
+
+    let mut count = 0usize;
+    {
+        let list = value.object().as_list().unwrap();
+        // Force the whole spine while holding the head: the worst case for
+        // retention.
+        list.for_each(&mut cx, None, &mut |_value| count += 1)
+            .unwrap();
+    }
+    assert_eq!(count, n);
+
+    let retained = Arc::strong_count(&obj);
+    assert!(
+        retained < 4 * n,
+        "fully forced list retains {retained} element copies for n={n}; expected O(n)"
+    );
+
+    // Random access into the shared slice still resolves correctly.
+    let list = value.object().as_list().unwrap();
+    assert!(list.get(&mut cx, n - 1).unwrap().is_some());
+    assert!(list.get(&mut cx, n).unwrap().is_none());
+}
+
+#[test]
+fn iter_streaming_reclaims_consumed_prefix() {
+    // A single advancing cursor over a large iterator must not retain the
+    // consumed prefix: dropping each node reclaims the buffer below the
+    // smallest live view.
+    let mut cx = test_cx();
+    let n = 1_000usize;
+    let one = cx.factory().bool(true).unwrap();
+    let mut cursor = cx
+        .factory()
+        .opaque(Arc::new(LazyIterList::new(Box::new(
+            std::iter::repeat_with(move || Ok(one.clone())).take(n),
+        ))))
+        .unwrap();
+
+    let mut consumed = 0usize;
+    let mut max_buffered = 0usize;
+    loop {
+        let (had_head, buffered_now, next) = {
+            let list = cursor.object().as_list().unwrap();
+            let had_head = list.car(&mut cx).unwrap().is_some();
+            let buffered = cursor
+                .object()
+                .as_any()
+                .downcast_ref::<LazyIterList>()
+                .map(LazyIterList::buffered);
+            (had_head, buffered, list.cdr(&mut cx).unwrap())
+        };
+        if let Some(buffered) = buffered_now {
+            max_buffered = max_buffered.max(buffered);
+        }
+        if had_head {
+            consumed += 1;
+        }
+        match next {
+            // Reassigning drops the previous node, which unregisters its view
+            // and lets the buffer prefix be reclaimed.
+            Some(next) => cursor = next,
+            None => break,
+        }
+    }
+
+    assert_eq!(consumed, n);
+    assert!(
+        max_buffered <= 4,
+        "streaming must reclaim the consumed prefix, saw {max_buffered} buffered"
+    );
+}
+
 #[test]
 fn lazy_cons_citizen_round_trips_as_descriptor() {
     let mut cx = test_cx();

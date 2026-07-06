@@ -83,6 +83,39 @@ fn eager_backend_entries_are_pre_cached() {
 }
 
 #[test]
+fn keys_and_entries_are_deterministically_ordered() {
+    // Regression guard for F39: `keys`/`entries` must not leak the
+    // nondeterministic HashMap order. Insert out of order, expect sorted; and
+    // `entries` forces loaders in that same stable order.
+    let mut cx = test_cx();
+    let value = cx.factory().bool(true).unwrap();
+    let table = LazyTable::with_entries(vec![
+        (Symbol::new("delta"), value.clone()),
+        (Symbol::new("alpha"), value.clone()),
+        (Symbol::new("charlie"), value.clone()),
+        (Symbol::new("bravo"), value),
+    ]);
+
+    let expected = vec![
+        Symbol::new("alpha"),
+        Symbol::new("bravo"),
+        Symbol::new("charlie"),
+        Symbol::new("delta"),
+    ];
+
+    assert_eq!(table.keys(&mut cx).unwrap(), expected);
+    assert_eq!(table.keys(&mut cx).unwrap(), expected);
+
+    let entry_keys: Vec<Symbol> = table
+        .entries(&mut cx)
+        .unwrap()
+        .into_iter()
+        .map(|(key, _)| key)
+        .collect();
+    assert_eq!(entry_keys, expected);
+}
+
+#[test]
 fn loader_errors_are_memoized_too() {
     let mut cx = test_cx();
     let calls = Arc::new(AtomicUsize::new(0));

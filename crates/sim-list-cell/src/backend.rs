@@ -25,19 +25,24 @@ impl ListBackend for ConsBackend {
     }
 
     fn new_cons(&self, cx: &mut Cx, car: Value, cdr: Value) -> Result<Value> {
-        let tail = match cdr.object().downcast_ref::<ConsList>() {
-            Some(cons) => Arc::new(cons.clone()),
+        match cdr.object().downcast_ref::<ConsList>() {
+            Some(cons) => cx
+                .factory()
+                .opaque(Arc::new(ConsList::cell(car, Arc::new(cons.clone())))),
             None => {
-                let Some(list) = cdr.object().as_list() else {
+                // A non-`ConsList` tail is kept lazily rather than materialized,
+                // so consing onto a lazy or unbounded list does not realize its
+                // spine.
+                if cdr.object().as_list().is_none() {
                     return Err(Error::TypeMismatch {
                         expected: "list",
                         found: "non-list",
                     });
-                };
-                ConsList::from_vec(list.to_vec(cx, None)?)
+                }
+                cx.factory()
+                    .opaque(Arc::new(ConsList::cell_foreign(car, cdr)))
             }
-        };
-        cx.factory().opaque(Arc::new(ConsList::cell(car, tail)))
+        }
     }
 }
 

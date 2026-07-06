@@ -275,15 +275,22 @@ impl Table for LazyTable {
     }
 
     fn keys(&self, _cx: &mut Cx) -> Result<Vec<Symbol>> {
-        Ok(self.read()?.keys().cloned().collect())
+        // Sort so iteration order is deterministic across runs, matching the
+        // sorted encoder (`descriptor_entries`) and the other table backends;
+        // a raw `HashMap` iteration leaks nondeterministic order.
+        let mut keys: Vec<Symbol> = self.read()?.keys().cloned().collect();
+        keys.sort();
+        Ok(keys)
     }
 
     fn entries(&self, cx: &mut Cx) -> Result<Vec<(Symbol, Value)>> {
-        let snapshot: Vec<(Symbol, Arc<LazyEntry>)> = self
+        let mut snapshot: Vec<(Symbol, Arc<LazyEntry>)> = self
             .read()?
             .iter()
             .map(|(key, entry)| (key.clone(), entry.clone()))
             .collect();
+        // Force in a deterministic key order so callers see a stable sequence.
+        snapshot.sort_by(|left, right| left.0.cmp(&right.0));
         let mut out = Vec::with_capacity(snapshot.len());
         for (key, entry) in snapshot {
             out.push((key, entry.force(cx)?));

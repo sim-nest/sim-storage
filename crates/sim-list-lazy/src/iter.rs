@@ -3,7 +3,8 @@
 
 use std::{
     cmp::Ordering,
-    sync::{Arc, Mutex},
+    collections::BTreeMap,
+    sync::{Arc, Mutex, PoisonError},
 };
 
 use sim_kernel::{
@@ -60,7 +61,15 @@ impl ListCursor {
 
 struct IterState {
     driver: IterDriver,
+    /// Forced elements, `buffer[i]` holding absolute index `base + i`. The
+    /// consumed prefix is drained (see [`IterState::unregister`]) so the buffer
+    /// does not grow monotonically while a large list is streamed.
     buffer: Vec<Value>,
+    /// Absolute index of `buffer[0]`: the count of already-reclaimed elements.
+    base: usize,
+    /// Live-view census: absolute `start` offset -> number of live views at it.
+    /// The buffer prefix below the smallest live start is safe to reclaim.
+    live: BTreeMap<usize, usize>,
     done: bool,
 }
 
@@ -69,6 +78,8 @@ impl IterState {
         Self {
             driver: IterDriver::Iter(iter),
             buffer: Vec::new(),
+            base: 0,
+            live: BTreeMap::new(),
             done: false,
         }
     }
@@ -77,18 +88,55 @@ impl IterState {
         Self {
             driver: IterDriver::List(ListCursor::new(tail)),
             buffer: vec![first],
+            base: 0,
+            live: BTreeMap::new(),
             done: false,
         }
     }
 
+    /// The absolute count of elements forced so far (`base` + buffered).
+    fn filled(&self) -> usize {
+        self.base + self.buffer.len()
+    }
+
+    /// Forces elements until at least `need` (an absolute index count) are
+    /// available or the source is exhausted, returning the absolute filled
+    /// count.
     fn fill_to(&mut self, cx: &mut Cx, need: usize) -> Result<usize> {
-        while self.buffer.len() < need && !self.done {
+        while self.filled() < need && !self.done {
             match self.driver.next_value(cx)? {
                 Some(item) => self.buffer.push(item),
                 None => self.done = true,
             }
         }
-        Ok(self.buffer.len().min(need))
+        Ok(self.filled())
+    }
+
+    /// Records a new live view at absolute offset `start`.
+    fn register(&mut self, start: usize) {
+        *self.live.entry(start).or_insert(0) += 1;
+    }
+
+    /// Drops a live view at `start` and reclaims any buffer prefix below the
+    /// smallest remaining live offset, so a streamed prefix does not linger.
+    fn unregister(&mut self, start: usize) {
+        if let Some(count) = self.live.get_mut(&start) {
+            *count -= 1;
+            if *count == 0 {
+                self.live.remove(&start);
+            }
+        }
+        let floor = self
+            .live
+            .keys()
+            .next()
+            .copied()
+            .unwrap_or_else(|| self.filled());
+        let drop_n = floor.saturating_sub(self.base).min(self.buffer.len());
+        if drop_n > 0 {
+            self.buffer.drain(0..drop_n);
+            self.base += drop_n;
+        }
     }
 }
 
@@ -128,7 +176,6 @@ impl IterState {
 /// assert!(tail.car(&mut cx).unwrap().is_some());
 /// assert!(!tail.is_empty(&mut cx).unwrap());
 /// ```
-#[derive(Clone)]
 pub struct LazyIterList {
     state: Arc<Mutex<IterState>>,
     start: usize,
@@ -137,25 +184,57 @@ pub struct LazyIterList {
 impl LazyIterList {
     /// Builds a lazy list whose elements are produced by `iter` on demand.
     pub fn new(iter: Box<ValueIter>) -> Self {
-        Self {
-            state: Arc::new(Mutex::new(IterState::new(iter))),
-            start: 0,
-        }
+        Self::from_state(Arc::new(Mutex::new(IterState::new(iter))), 0)
     }
 
     /// Builds a lazy list with `first` as its head, streaming the rest from the
     /// existing list `tail`.
     pub fn prepend(first: Value, tail: Value) -> Self {
-        Self {
-            state: Arc::new(Mutex::new(IterState::with_prefix(first, tail))),
-            start: 0,
-        }
+        Self::from_state(Arc::new(Mutex::new(IterState::with_prefix(first, tail))), 0)
+    }
+
+    /// Builds a view over `state` at absolute offset `start`, recording it in
+    /// the live-view census so the shared buffer knows the prefix is still
+    /// needed. Every `LazyIterList` (including [`Clone`] and [`cdr`] views) is
+    /// created here and released in [`Drop`], keeping the census exact.
+    fn from_state(state: Arc<Mutex<IterState>>, start: usize) -> Self {
+        state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .register(start);
+        Self { state, start }
     }
 
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, IterState>> {
         self.state
             .lock()
             .map_err(|_| Error::Eval("list/lazy lock poisoned".to_owned()))
+    }
+
+    /// Test-only view of the currently buffered (not-yet-reclaimed) element
+    /// count, used to assert the consumed prefix is truncated.
+    #[cfg(test)]
+    pub(crate) fn buffered(&self) -> usize {
+        self.state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .buffer
+            .len()
+    }
+}
+
+impl Clone for LazyIterList {
+    fn clone(&self) -> Self {
+        Self::from_state(Arc::clone(&self.state), self.start)
+    }
+}
+
+impl Drop for LazyIterList {
+    fn drop(&mut self) {
+        self.state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .unregister(self.start);
     }
 }
 
@@ -247,7 +326,8 @@ impl ListValue for LazyIterList {
         if have <= self.start {
             Ok(None)
         } else {
-            Ok(Some(state.buffer[self.start].clone()))
+            let index = self.start - state.base;
+            Ok(Some(state.buffer[index].clone()))
         }
     }
 
@@ -256,10 +336,10 @@ impl ListValue for LazyIterList {
             return Ok(None);
         }
         cx.factory()
-            .opaque(Arc::new(Self {
-                state: self.state.clone(),
-                start: self.start + 1,
-            }))
+            .opaque(Arc::new(Self::from_state(
+                Arc::clone(&self.state),
+                self.start + 1,
+            )))
             .map(Some)
     }
 

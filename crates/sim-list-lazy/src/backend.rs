@@ -57,23 +57,33 @@ impl ListBackend for IterBackend {
 }
 
 fn finite_chain(items: Vec<Value>) -> Arc<LazyConsList> {
-    match items.split_first() {
-        None => Arc::new(LazyConsList::empty()),
-        Some((head, tail)) => {
-            let head = head.clone();
-            let tail_items = tail.to_vec();
-            Arc::new(LazyConsList::new(
-                move |_cx| Ok(head.clone()),
-                move |cx| {
-                    if tail_items.is_empty() {
-                        Ok(None)
-                    } else {
-                        Ok(Some(cx.factory().opaque(finite_chain(tail_items.clone()))?))
-                    }
-                },
-            ))
-        }
+    chain_from(Arc::from(items), 0)
+}
+
+/// Builds the lazy cons node for `items[index..]` without copying the tail.
+///
+/// Every node shares the single `Arc<[Value]>` and carries only an integer
+/// offset, so a fully traversed length-`n` list retains O(n) memory (one shared
+/// slice plus O(1) per node) rather than the O(n^2) that per-node `Vec` clones
+/// would cost.
+fn chain_from(items: Arc<[Value]>, index: usize) -> Arc<LazyConsList> {
+    if index >= items.len() {
+        return Arc::new(LazyConsList::empty());
     }
+    let head_items = Arc::clone(&items);
+    Arc::new(LazyConsList::new(
+        move |_cx| Ok(head_items[index].clone()),
+        move |cx| {
+            let next = index + 1;
+            if next >= items.len() {
+                Ok(None)
+            } else {
+                Ok(Some(
+                    cx.factory().opaque(chain_from(Arc::clone(&items), next))?,
+                ))
+            }
+        },
+    ))
 }
 
 fn ensure_list_tail(value: &Value) -> Result<()> {

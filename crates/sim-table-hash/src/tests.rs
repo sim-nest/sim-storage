@@ -76,3 +76,36 @@ fn hash_table_citizen_round_trips_as_descriptor() {
     );
     assert!(decoded.object().as_table_impl().is_none());
 }
+
+#[test]
+fn keys_and_entries_are_deterministically_ordered() {
+    // Regression guard for F39: `keys`/`entries` must not leak the
+    // nondeterministic HashMap order. Insert out of order, expect sorted.
+    let mut cx = test_cx();
+    let value = cx.factory().bool(true).unwrap();
+    let table = HashTable::with_entries(vec![
+        (Symbol::new("delta"), value.clone()),
+        (Symbol::new("alpha"), value.clone()),
+        (Symbol::new("charlie"), value.clone()),
+        (Symbol::new("bravo"), value),
+    ]);
+
+    let expected = vec![
+        Symbol::new("alpha"),
+        Symbol::new("bravo"),
+        Symbol::new("charlie"),
+        Symbol::new("delta"),
+    ];
+
+    assert_eq!(table.keys(&mut cx).unwrap(), expected);
+    // Stable across repeated calls.
+    assert_eq!(table.keys(&mut cx).unwrap(), expected);
+
+    let entry_keys: Vec<Symbol> = table
+        .entries(&mut cx)
+        .unwrap()
+        .into_iter()
+        .map(|(key, _)| key)
+        .collect();
+    assert_eq!(entry_keys, expected);
+}
