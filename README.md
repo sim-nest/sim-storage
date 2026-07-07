@@ -1,5 +1,59 @@
 # sim-storage
 
+Where SIM keeps things: lists and lookup tables -- eager or lazy, layered or on
+disk -- behind one uniform runtime contract, so you pick a storage strategy by
+installing the matching library instead of rewriting call sites.
+
+## Quickstart
+
+Build a shared cons-cell list and read it back by head and tail:
+
+```bash
+cargo add sim-list-cell
+```
+
+```rust
+use std::sync::Arc;
+use sim_kernel::{Cx, DefaultFactory, EagerPolicy, Factory, ListValue, LengthResult};
+use sim_list_cell::ConsList;
+
+let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+
+let a = cx.factory().bool(true).unwrap();
+let b = cx.factory().bool(false).unwrap();
+let xs = ConsList::from_vec(vec![a, b]);
+
+assert_eq!(xs.len(&mut cx).unwrap(), LengthResult::Known(2));
+let tail = xs.cdr(&mut cx).unwrap().unwrap();
+let tail = tail.object().as_list().unwrap();
+assert_eq!(tail.len(&mut cx).unwrap(), LengthResult::Known(1));
+```
+
+(from the `ConsList` doctest, `crates/sim-list-cell/src/cons.rs:30`)
+
+Store symbol-keyed values in an in-memory table and look one up:
+
+```bash
+cargo add sim-table-hash
+```
+
+```rust
+use std::sync::Arc;
+use sim_kernel::{Cx, DefaultFactory, NoopEvalPolicy, Symbol, Table};
+use sim_table_hash::HashTable;
+
+let mut cx = Cx::new(Arc::new(NoopEvalPolicy), Arc::new(DefaultFactory));
+let value = cx.factory().bool(true).unwrap();
+let table = HashTable::with_entries(vec![(Symbol::new("a"), value.clone())]);
+
+assert_eq!(table.len(&mut cx).unwrap(), 1);
+assert_eq!(table.get(&mut cx, Symbol::new("a")).unwrap(), value);
+```
+
+(from the `HashTable::with_entries` doctest, `crates/sim-table-hash/src/hash.rs:67`)
+
+## How it works
+
 `sim-storage` is the storage-backend surface of the SIM constellation. SIM is
 an expandable Rust runtime built around a small protocol kernel plus a large
 set of loadable libraries: the kernel defines contracts, libraries provide
