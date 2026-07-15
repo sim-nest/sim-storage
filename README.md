@@ -84,17 +84,18 @@ repository supplies the behavior, not the protocol.
 | `sim-table-lazy` | Lazy table backend: `LazyTable` produces entry values through `ValueLoader` closures that run at most once and memoize their result. Installs via `install_lazy_table_lib`. |
 | `sim-table-override` | Overlay table backend: `OverrideTable` layers one or more tables over a base table, resolving lookups front-to-back so upper layers shadow lower ones. Installs via `install_override_table_lib`. |
 | `sim-table-db` | Db-backed table backend: `DbDir` is a path-addressed directory tree of symbol-keyed values that satisfies the kernel table and directory contracts under capability control. Installs via `install_db_dir_lib`. |
+| `sim-table-fs` | Filesystem directory backend: `FsDir` exposes a host directory as a path-addressed table with codec-by-extension leaves and capability-gated mutation. Installs via `install_fs_dir_lib`. |
 
 ## Backends as loadable libraries
 
 Every backend follows the same contract. It implements a kernel collection
 trait (`ListBackend` or `TableBackend`, plus the directory contract for
-`sim-table-db`), registers a citizen class so its values are first-class
-runtime objects, and exposes a single `install_*` function that adds the
-library to a runtime `Cx`. A program selects a storage strategy -- eager cell
-versus lazy, hashed versus overlay versus db -- by installing the matching
-library, while the kernel contract keeps the collection surface uniform across
-backends.
+`sim-table-db` and `sim-table-fs`), registers a citizen class so its values are
+first-class runtime objects, and exposes a single `install_*` function that adds
+the library to a runtime `Cx`. A program selects a storage strategy -- eager
+cell versus lazy, hashed versus overlay versus db versus filesystem -- by
+installing the matching library, while the kernel contract keeps the collection
+surface uniform across backends.
 
 ## Validation
 

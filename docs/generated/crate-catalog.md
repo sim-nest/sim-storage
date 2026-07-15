@@ -9,6 +9,7 @@ Generated from Cargo metadata by `xtask crate-catalog v1`.
 | `sim-list-cell` | `true` | `lib` | SIM workspace package for sim list cell. |
 | `sim-list-lazy` | `true` | `lib` | SIM workspace package for sim list lazy. |
 | `sim-table-db` | `true` | `lib` | SIM workspace package for sim table db. |
+| `sim-table-fs` | `true` | `lib` | SIM workspace package for sim table fs. |
 | `sim-table-hash` | `true` | `lib` | SIM workspace package for sim table hash. |
 | `sim-table-lazy` | `true` | `lib` | SIM workspace package for sim table lazy. |
 | `sim-table-override` | `true` | `lib` | SIM workspace package for sim table override. |

@@ -1,6 +1,6 @@
 {
   "generator": "xtask crate-catalog v1",
-  "package_count": 7,
+  "package_count": 8,
   "packages": [
     {
       "description": "SIM workspace package for sim list cell.",
@@ -34,6 +34,18 @@
       "publish": "true",
       "readme": "crates/sim-table-db/README.md",
       "root": "crates/sim-table-db",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim table fs.",
+      "generated_readme": true,
+      "manifest": "crates/sim-table-fs/Cargo.toml",
+      "name": "sim-table-fs",
+      "publish": "true",
+      "readme": "crates/sim-table-fs/README.md",
+      "root": "crates/sim-table-fs",
       "target_kinds": [
         "lib"
       ]
