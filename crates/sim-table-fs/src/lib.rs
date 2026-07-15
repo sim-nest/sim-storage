@@ -30,5 +30,9 @@ pub use citizen::{FsDirDescriptor, fs_dir_class_symbol};
 pub use find::{FindGlobResult, FindGrepResult, FindMatch};
 pub use fs_dir::{FsDir, install_fs_dir_lib};
 
+/// Cookbook recipes for this lib, embedded at build time.
+pub static RECIPES: sim_cookbook::EmbeddedDir =
+    include!(concat!(env!("OUT_DIR"), "/cookbook_recipes.rs"));
+
 #[cfg(test)]
 mod tests;

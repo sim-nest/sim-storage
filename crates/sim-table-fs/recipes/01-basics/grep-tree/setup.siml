@@ -1,0 +1,4 @@
+(quote
+  (filesystem-table-find
+    (:root "./workspace" :glob "*.siml" :max 10)
+    (find/grep "needle")))

@@ -1,3 +1,11 @@
+{"kind":"recipe","path":"crates/sim-table-fs/recipes/01-basics/chapter.toml"}
+{"kind":"recipe","path":"crates/sim-table-fs/recipes/01-basics/grep-tree/purpose.md"}
+{"kind":"recipe","path":"crates/sim-table-fs/recipes/01-basics/grep-tree/recipe.toml"}
+{"kind":"recipe","path":"crates/sim-table-fs/recipes/01-basics/grep-tree/setup.siml"}
+{"kind":"recipe","path":"crates/sim-table-fs/recipes/01-basics/read-edit-file/purpose.md"}
+{"kind":"recipe","path":"crates/sim-table-fs/recipes/01-basics/read-edit-file/recipe.toml"}
+{"kind":"recipe","path":"crates/sim-table-fs/recipes/01-basics/read-edit-file/setup.siml"}
+{"kind":"recipe","path":"crates/sim-table-fs/recipes/book.toml"}
 {"kind":"recipe","path":"crates/sim-table-http/recipes/01-basics/chapter.toml"}
 {"kind":"recipe","path":"crates/sim-table-http/recipes/01-basics/http-get/purpose.md"}
 {"kind":"recipe","path":"crates/sim-table-http/recipes/01-basics/http-get/recipe.toml"}

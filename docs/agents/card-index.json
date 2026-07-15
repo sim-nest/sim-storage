@@ -1,6 +1,14 @@
 {
   "schema": "sim.card-index.v1",
   "cards": [
+    "crates/sim-table-fs/recipes/01-basics/chapter.toml",
+    "crates/sim-table-fs/recipes/01-basics/grep-tree/purpose.md",
+    "crates/sim-table-fs/recipes/01-basics/grep-tree/recipe.toml",
+    "crates/sim-table-fs/recipes/01-basics/grep-tree/setup.siml",
+    "crates/sim-table-fs/recipes/01-basics/read-edit-file/purpose.md",
+    "crates/sim-table-fs/recipes/01-basics/read-edit-file/recipe.toml",
+    "crates/sim-table-fs/recipes/01-basics/read-edit-file/setup.siml",
+    "crates/sim-table-fs/recipes/book.toml",
     "crates/sim-table-http/recipes/01-basics/chapter.toml",
     "crates/sim-table-http/recipes/01-basics/http-get/purpose.md",
     "crates/sim-table-http/recipes/01-basics/http-get/recipe.toml",
