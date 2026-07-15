@@ -4,11 +4,12 @@
 //! Filesystem-backed table store for SIM.
 //!
 //! This crate exposes a host directory as a SIM table: each table key maps to a
-//! file, and nested tables map to subdirectories. Reads and writes are gated by
-//! the kernel's table-fs capabilities and encoded through the configured codec.
-//! With the optional format features enabled, recognized extensions (for
-//! example `.mid`, `.music`, `.tone`, `.scl`, `.ly`) round-trip through their
-//! domain shapes.
+//! file, and nested tables map to subdirectories. Reads are gated by `fs/read`;
+//! writes, deletes, and directory mutation are gated by `fs/write`.
+//! Compatibility `table.fs.*` aliases are accepted by the gates. Values are encoded through
+//! the configured codec. With the optional format features enabled, recognized
+//! extensions (for example `.mid`, `.music`, `.tone`, `.scl`, `.ly`) round-trip
+//! through their domain shapes.
 
 pub mod capabilities;
 mod citizen;

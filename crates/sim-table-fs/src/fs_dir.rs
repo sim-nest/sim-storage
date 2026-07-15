@@ -14,10 +14,10 @@ use sim_kernel::{
 };
 
 use crate::{
+    capabilities::{require_table_fs_read, require_table_fs_write},
     citizen::fs_dir_class_symbol,
     roadmap11::{decode_expr_for_ext, encode_expr_for_ext, infer_ext_from_expr, known_exts},
-    table_fs_capability, table_fs_mkdir_capability, table_fs_read_capability,
-    table_fs_rmdir_capability, table_fs_write_capability,
+    table_fs_capability,
 };
 
 const DEFAULT_EXT: &str = "siml";
@@ -197,7 +197,7 @@ impl Table for FsDir {
     }
 
     fn get(&self, cx: &mut Cx, key: Symbol) -> Result<Value> {
-        cx.require(&table_fs_read_capability())?;
+        require_table_fs_read(cx)?;
         match self.leaf_path_for_read(&key)? {
             Some((path, ext)) => {
                 let bytes = std::fs::read(&path)
@@ -216,7 +216,7 @@ impl Table for FsDir {
     }
 
     fn set(&self, cx: &mut Cx, key: Symbol, value: Value) -> Result<()> {
-        cx.require(&table_fs_write_capability())?;
+        require_table_fs_write(cx)?;
         let base = self.segment(&key)?;
         if base.is_dir() {
             return Err(Error::Eval(format!("table/fs: {key} is a directory")));
@@ -251,13 +251,13 @@ impl Table for FsDir {
     }
 
     fn has(&self, cx: &mut Cx, key: Symbol) -> Result<bool> {
-        cx.require(&table_fs_read_capability())?;
+        require_table_fs_read(cx)?;
         let path = self.segment(&key)?;
         Ok(path.is_dir() || self.leaf_path_for_read(&key)?.is_some())
     }
 
     fn del(&self, cx: &mut Cx, key: Symbol) -> Result<Value> {
-        cx.require(&table_fs_write_capability())?;
+        require_table_fs_write(cx)?;
         match self.leaf_path_for_read(&key)? {
             Some((path, ext)) => {
                 let bytes = std::fs::read(&path).unwrap_or_default();
@@ -280,7 +280,7 @@ impl Table for FsDir {
     }
 
     fn keys(&self, cx: &mut Cx) -> Result<Vec<Symbol>> {
-        cx.require(&table_fs_read_capability())?;
+        require_table_fs_read(cx)?;
         let mut keys = BTreeSet::new();
         let entries = std::fs::read_dir(&self.root)
             .map_err(|err| Error::Eval(format!("table/fs: read_dir {err}")))?;
@@ -308,7 +308,7 @@ impl Table for FsDir {
     }
 
     fn entries(&self, cx: &mut Cx) -> Result<Vec<(Symbol, Value)>> {
-        cx.require(&table_fs_read_capability())?;
+        require_table_fs_read(cx)?;
         let mut entries = Vec::new();
         for key in self.keys(cx)? {
             if self.is_dir(cx, key.clone())? {
@@ -324,7 +324,7 @@ impl Table for FsDir {
     }
 
     fn clear(&self, cx: &mut Cx) -> Result<()> {
-        cx.require(&table_fs_write_capability())?;
+        require_table_fs_write(cx)?;
         for key in self.keys(cx)? {
             if !self.is_dir(cx, key.clone())? {
                 let _ = self.del(cx, key)?;
@@ -336,7 +336,7 @@ impl Table for FsDir {
 
 impl Dir for FsDir {
     fn mkdir(&self, cx: &mut Cx, name: Symbol) -> Result<Value> {
-        cx.require(&table_fs_mkdir_capability())?;
+        require_table_fs_write(cx)?;
         let path = self.segment(&name)?;
         if self.leaf_path_for_read(&name)?.is_some() {
             return Err(Error::Eval(format!("table/fs: {name} is a file")));
@@ -347,7 +347,7 @@ impl Dir for FsDir {
     }
 
     fn opendir(&self, cx: &mut Cx, name: Symbol) -> Result<Option<Value>> {
-        cx.require(&table_fs_read_capability())?;
+        require_table_fs_read(cx)?;
         let path = self.segment(&name)?;
         if path.is_dir() {
             Ok(Some(cx.factory().opaque(Arc::new(Self::open(path)?))?))
@@ -359,7 +359,7 @@ impl Dir for FsDir {
     }
 
     fn rmdir(&self, cx: &mut Cx, name: Symbol) -> Result<Value> {
-        cx.require(&table_fs_rmdir_capability())?;
+        require_table_fs_write(cx)?;
         let path = self.segment(&name)?;
         if !path.is_dir() {
             return Err(Error::Eval(format!("table/fs: {name} is not a directory")));
@@ -370,7 +370,7 @@ impl Dir for FsDir {
     }
 
     fn is_dir(&self, cx: &mut Cx, name: Symbol) -> Result<bool> {
-        cx.require(&table_fs_read_capability())?;
+        require_table_fs_read(cx)?;
         Ok(self.segment(&name)?.is_dir())
     }
 }

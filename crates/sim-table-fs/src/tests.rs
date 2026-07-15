@@ -11,7 +11,7 @@ use sim_codec_binary_base64::BinaryBase64CodecLib;
 use sim_codec_json::JsonCodecLib;
 use sim_codec_lisp::LispCodecLib;
 use sim_kernel::{
-    DefaultFactory, Dir, EagerPolicy, EncodeOptions, Expr, ObjectEncoding, Symbol,
+    DefaultFactory, Dir, EagerPolicy, EncodeOptions, Expr, ObjectEncoding, Symbol, Table,
     read_construct_capability,
 };
 
@@ -184,6 +184,45 @@ fn fs_dir_operations_are_capability_gated() {
         fs_dir.rmdir(&mut cx, Symbol::new("sub")),
         Err(sim_kernel::Error::CapabilityDenied { .. })
     ));
+}
+
+#[test]
+fn fs_dir_accepts_compatibility_capability_aliases() {
+    let root = test_root("compat-caps");
+    let dir = FsDir::open(root).unwrap();
+
+    let mut rw_cx = cx();
+    grant(
+        &mut rw_cx,
+        &[
+            sim_kernel::CapabilityName::new("table.fs.read"),
+            sim_kernel::CapabilityName::new("table.fs.write"),
+        ],
+    );
+    let value = rw_cx.factory().string("value".to_owned()).unwrap();
+    dir.set(&mut rw_cx, Symbol::new("x"), value).unwrap();
+    assert_eq!(
+        dir.get(&mut rw_cx, Symbol::new("x"))
+            .unwrap()
+            .object()
+            .as_expr(&mut rw_cx)
+            .unwrap(),
+        Expr::String("value".to_owned())
+    );
+
+    let mut mkdir_cx = cx();
+    grant(
+        &mut mkdir_cx,
+        &[sim_kernel::CapabilityName::new("table.fs.mkdir")],
+    );
+    dir.mkdir(&mut mkdir_cx, Symbol::new("sub")).unwrap();
+
+    let mut rmdir_cx = cx();
+    grant(
+        &mut rmdir_cx,
+        &[sim_kernel::CapabilityName::new("table.fs.rmdir")],
+    );
+    dir.rmdir(&mut rmdir_cx, Symbol::new("sub")).unwrap();
 }
 
 #[test]
