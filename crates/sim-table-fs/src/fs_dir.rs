@@ -74,6 +74,10 @@ impl FsDir {
         self.ensure_within_root(path)
     }
 
+    pub(crate) fn root_path(&self) -> &Path {
+        &self.root
+    }
+
     fn leaf_candidates(&self, name: &Symbol) -> Result<Vec<(PathBuf, &'static str)>> {
         let base = self.segment(name)?;
         let mut matches = Vec::new();
@@ -106,16 +110,21 @@ impl FsDir {
         let Some((path, ext)) = self.leaf_path_for_read(key)? else {
             return Err(Error::Eval(format!("table/fs: {key} is not a file")));
         };
+        let expr = self.read_leaf_path(cx, &path, ext)?;
+        Ok((path, ext, expr))
+    }
+
+    pub(crate) fn read_leaf_path(&self, cx: &mut Cx, path: &Path, ext: &str) -> Result<Expr> {
+        self.ensure_internal_path(path)?;
         let bytes =
-            std::fs::read(&path).map_err(|err| Error::Eval(format!("table/fs: read {err}")))?;
-        let expr = match decode_expr_for_ext(ext, &bytes) {
+            std::fs::read(path).map_err(|err| Error::Eval(format!("table/fs: read {err}")))?;
+        Ok(match decode_expr_for_ext(ext, &bytes) {
             Some(expr) => expr?,
             None => {
                 let codec = Self::codec_for_ext(ext)?;
                 Self::decode_expr_bytes(cx, &codec, &bytes)?
             }
-        };
-        Ok((path, ext, expr))
+        })
     }
 
     fn codec_for_ext(ext: &str) -> Result<Symbol> {

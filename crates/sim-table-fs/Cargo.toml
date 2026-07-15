@@ -10,6 +10,8 @@ repository = "https://github.com/sim-nest/sim-storage"
 homepage = "https://github.com/sim-nest/sim-storage"
 
 [dependencies]
+globset = { version = "0.4" }
+regex = { version = "1" }
 sim-citizen = { version = "0.1.0" }
 sim-citizen-derive = { version = "0.1.0" }
 sim-codec = { version = "0.1.0" }
