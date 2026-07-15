@@ -11,6 +11,7 @@ Generated from Cargo metadata by `xtask crate-catalog v1`.
 | `sim-table-db` | `true` | `lib` | SIM workspace package for sim table db. |
 | `sim-table-fs` | `true` | `lib` | SIM workspace package for sim table fs. |
 | `sim-table-hash` | `true` | `lib` | SIM workspace package for sim table hash. |
+| `sim-table-http` | `false` | `custom-build, lib` | Capability-gated HTTP table directory backend for SIM. |
 | `sim-table-lazy` | `true` | `lib` | SIM workspace package for sim table lazy. |
 | `sim-table-override` | `true` | `lib` | SIM workspace package for sim table override. |
 | `xtask` | `false` | `bin` | SIM workspace package for xtask. |

@@ -1,0 +1,5 @@
+book = "storage/table-http"
+title = "HTTP Table"
+summary = "Direct HTTP resources addressed through the table directory surface."
+order = 126
+chapters = ["01-basics"]

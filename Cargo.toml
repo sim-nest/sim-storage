@@ -7,6 +7,7 @@ members = [
   "crates/sim-table-db",
   "crates/sim-table-fs",
   "crates/sim-table-hash",
+  "crates/sim-table-http",
   "crates/sim-table-lazy",
   "crates/sim-table-override",
   "xtask",
