@@ -8,7 +8,7 @@ SIM workspace package for sim table fs.
 
 - Manifest: `crates/sim-table-fs/Cargo.toml`
 - Publish: `true`
-- Targets: `lib`
+- Targets: `custom-build, lib`
 
 ## Crate Documentation
 

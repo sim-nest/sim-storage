@@ -7,7 +7,7 @@ Capability-gated HTTP table directory backend for SIM.
 ## Package Metadata
 
 - Manifest: `crates/sim-table-http/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `custom-build, lib`
 
 ## Crate Documentation

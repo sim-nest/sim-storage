@@ -47,6 +47,7 @@
       "readme": "crates/sim-table-fs/README.md",
       "root": "crates/sim-table-fs",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -67,7 +68,7 @@
       "generated_readme": true,
       "manifest": "crates/sim-table-http/Cargo.toml",
       "name": "sim-table-http",
-      "publish": "false",
+      "publish": "true",
       "readme": "crates/sim-table-http/README.md",
       "root": "crates/sim-table-http",
       "target_kinds": [
