@@ -1,6 +1,5 @@
-(quote
-  (filesystem-table-edit
-    (:root "./workspace" :codec codec/lisp)
-    (set note "alpha beta")
-    (dir/edit note :old "beta" :new "gamma")
-    (get note)))
+{
+  (set (table/fs ".sim/cookbook/core-read-edit-file") 'note "alpha beta")
+  (dir/edit (table/fs ".sim/cookbook/core-read-edit-file") 'note "beta" "gamma")
+  (get (table/fs ".sim/cookbook/core-read-edit-file") 'note)
+}
