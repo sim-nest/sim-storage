@@ -9,16 +9,18 @@
 //! Compatibility `table.fs.*` aliases are accepted by the gates. Values are encoded through
 //! the configured codec. With the optional format features enabled, recognized
 //! extensions (for example `.mid`, `.music`, `.tone`, `.scl`, `.ly`) round-trip
-//! through their domain shapes.
+//! through their domain shapes. `FsDir::edit` patches string leaves with
+//! `fs/read` and `edit`, then writes by same-directory temp file and rename.
 
 pub mod capabilities;
 mod citizen;
+mod dir_edit;
 mod fs_dir;
 mod roadmap11;
 
 pub use capabilities::{
-    table_fs_capability, table_fs_mkdir_capability, table_fs_read_capability,
-    table_fs_rmdir_capability, table_fs_write_capability,
+    table_fs_capability, table_fs_edit_capability, table_fs_mkdir_capability,
+    table_fs_read_capability, table_fs_rmdir_capability, table_fs_write_capability,
 };
 pub use citizen::{FsDirDescriptor, fs_dir_class_symbol};
 pub use fs_dir::{FsDir, install_fs_dir_lib};

@@ -70,6 +70,10 @@ impl FsDir {
         }
     }
 
+    pub(crate) fn ensure_internal_path(&self, path: &Path) -> Result<()> {
+        self.ensure_within_root(path)
+    }
+
     fn leaf_candidates(&self, name: &Symbol) -> Result<Vec<(PathBuf, &'static str)>> {
         let base = self.segment(name)?;
         let mut matches = Vec::new();
@@ -92,6 +96,26 @@ impl FsDir {
                 "table/fs: multiple leaf files found for key {name}"
             ))),
         }
+    }
+
+    pub(crate) fn read_leaf_expr(
+        &self,
+        cx: &mut Cx,
+        key: &Symbol,
+    ) -> Result<(PathBuf, &'static str, Expr)> {
+        let Some((path, ext)) = self.leaf_path_for_read(key)? else {
+            return Err(Error::Eval(format!("table/fs: {key} is not a file")));
+        };
+        let bytes =
+            std::fs::read(&path).map_err(|err| Error::Eval(format!("table/fs: read {err}")))?;
+        let expr = match decode_expr_for_ext(ext, &bytes) {
+            Some(expr) => expr?,
+            None => {
+                let codec = Self::codec_for_ext(ext)?;
+                Self::decode_expr_bytes(cx, &codec, &bytes)?
+            }
+        };
+        Ok((path, ext, expr))
     }
 
     fn codec_for_ext(ext: &str) -> Result<Symbol> {
@@ -118,6 +142,16 @@ impl FsDir {
         match encode_with_codec(cx, codec, expr, EncodeOptions::default())? {
             Output::Text(text) => Ok(text.into_bytes()),
             Output::Bytes(bytes) => Ok(bytes),
+        }
+    }
+
+    pub(crate) fn encode_leaf_expr(cx: &mut Cx, ext: &str, expr: &Expr) -> Result<Vec<u8>> {
+        match encode_expr_for_ext(ext, expr) {
+            Some(bytes) => bytes,
+            None => {
+                let codec = Symbol::qualified("codec", "lisp");
+                Self::encode_expr_bytes(cx, &codec, expr)
+            }
         }
     }
 }
@@ -199,16 +233,8 @@ impl Table for FsDir {
     fn get(&self, cx: &mut Cx, key: Symbol) -> Result<Value> {
         require_table_fs_read(cx)?;
         match self.leaf_path_for_read(&key)? {
-            Some((path, ext)) => {
-                let bytes = std::fs::read(&path)
-                    .map_err(|err| Error::Eval(format!("table/fs: read {err}")))?;
-                let expr = match decode_expr_for_ext(ext, &bytes) {
-                    Some(expr) => expr?,
-                    None => {
-                        let codec = Self::codec_for_ext(ext)?;
-                        Self::decode_expr_bytes(cx, &codec, &bytes)?
-                    }
-                };
+            Some(_) => {
+                let (_, _, expr) = self.read_leaf_expr(cx, &key)?;
                 cx.factory().expr(expr)
             }
             None => cx.factory().nil(),
@@ -238,13 +264,7 @@ impl Table for FsDir {
             .unwrap_or(DEFAULT_EXT);
         let path = base.with_extension(ext);
         self.ensure_within_root(&path)?;
-        let bytes = match encode_expr_for_ext(ext, &expr) {
-            Some(bytes) => bytes?,
-            None => {
-                let codec = Symbol::qualified("codec", "lisp");
-                Self::encode_expr_bytes(cx, &codec, &expr)?
-            }
-        };
+        let bytes = Self::encode_leaf_expr(cx, ext, &expr)?;
         std::fs::write(&path, bytes)
             .map_err(|err| Error::Eval(format!("table/fs: write {err}")))?;
         Ok(())

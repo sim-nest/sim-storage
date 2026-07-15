@@ -27,12 +27,21 @@ pub fn table_fs_rmdir_capability() -> CapabilityName {
     table_fs_write_capability()
 }
 
+/// The capability gating patch-only filesystem leaf edits (`edit`).
+pub fn table_fs_edit_capability() -> CapabilityName {
+    CapabilityName::new("edit")
+}
+
 pub(crate) fn require_table_fs_read(cx: &Cx) -> Result<()> {
     require_with_aliases(cx, table_fs_read_capability(), fs_read_aliases())
 }
 
 pub(crate) fn require_table_fs_write(cx: &Cx) -> Result<()> {
     require_with_aliases(cx, table_fs_write_capability(), fs_write_aliases())
+}
+
+pub(crate) fn require_table_fs_edit(cx: &Cx) -> Result<()> {
+    cx.require(&table_fs_edit_capability())
 }
 
 fn fs_read_aliases() -> &'static [&'static str] {
@@ -70,8 +79,8 @@ fn require_with_aliases(
 #[cfg(test)]
 mod tests {
     use super::{
-        table_fs_capability, table_fs_mkdir_capability, table_fs_read_capability,
-        table_fs_rmdir_capability, table_fs_write_capability,
+        table_fs_capability, table_fs_edit_capability, table_fs_mkdir_capability,
+        table_fs_read_capability, table_fs_rmdir_capability, table_fs_write_capability,
     };
 
     #[test]
@@ -81,5 +90,6 @@ mod tests {
         assert_eq!(table_fs_write_capability().as_str(), "fs/write");
         assert_eq!(table_fs_mkdir_capability().as_str(), "fs/write");
         assert_eq!(table_fs_rmdir_capability().as_str(), "fs/write");
+        assert_eq!(table_fs_edit_capability().as_str(), "edit");
     }
 }
