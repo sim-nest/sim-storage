@@ -1,5 +1,113 @@
 {
-  "schema": "sim.feature-map.v1",
-  "repo": "sim-storage",
-  "packages": []
+  "generator": "xtask repo-contract v1",
+  "packages": [
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-list-cell"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-list-lazy"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-table-db"
+    },
+    {
+      "features": [
+        {
+          "edges": [],
+          "name": "default",
+          "workspace_edges": []
+        },
+        {
+          "edges": [
+            "dep:sim-lib-midi-shapes",
+            "dep:sim-lib-midi-smf"
+          ],
+          "name": "midi",
+          "workspace_edges": []
+        },
+        {
+          "edges": [
+            "dep:sim-lib-music-core",
+            "dep:sim-lib-music-shapes"
+          ],
+          "name": "music",
+          "workspace_edges": []
+        },
+        {
+          "edges": [
+            "dep:sim-lib-music-core",
+            "dep:sim-lib-music-notation",
+            "dep:sim-lib-music-shapes"
+          ],
+          "name": "notation",
+          "workspace_edges": []
+        },
+        {
+          "edges": [
+            "dep:sim-lib-sound-core",
+            "dep:sim-lib-sound-shapes"
+          ],
+          "name": "sound",
+          "workspace_edges": []
+        },
+        {
+          "edges": [
+            "dep:sim-lib-pitch-core",
+            "dep:sim-lib-sound-core",
+            "dep:sim-lib-sound-shapes",
+            "dep:sim-lib-sound-tuning"
+          ],
+          "name": "tuning",
+          "workspace_edges": []
+        }
+      ],
+      "group": "workspace",
+      "package": "sim-table-fs"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-table-hash"
+    },
+    {
+      "features": [
+        {
+          "edges": [],
+          "name": "default",
+          "workspace_edges": []
+        },
+        {
+          "edges": [
+            "dep:rustls",
+            "dep:rustls-native-certs"
+          ],
+          "name": "tls",
+          "workspace_edges": []
+        }
+      ],
+      "group": "workspace",
+      "package": "sim-table-http"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-table-lazy"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-table-override"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "xtask"
+    }
+  ]
 }

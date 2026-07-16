@@ -1,5 +1,68 @@
 {
-  "schema": "sim.rustdoc-index.v1",
-  "repo": "sim-storage",
-  "target_doc": "target/doc/"
+  "generator": "xtask repo-contract v1",
+  "packages": [
+    {
+      "crate_name": "sim_list_cell",
+      "group": "workspace",
+      "manifest": "crates/sim-list-cell/Cargo.toml",
+      "package": "sim-list-cell",
+      "summary": "Cell-based list backend for the SIM constellation."
+    },
+    {
+      "crate_name": "sim_list_lazy",
+      "group": "workspace",
+      "manifest": "crates/sim-list-lazy/Cargo.toml",
+      "package": "sim-list-lazy",
+      "summary": "Lazy list backend for the SIM constellation."
+    },
+    {
+      "crate_name": "sim_table_db",
+      "group": "workspace",
+      "manifest": "crates/sim-table-db/Cargo.toml",
+      "package": "sim-table-db",
+      "summary": "Db-backed table backend for the SIM constellation."
+    },
+    {
+      "crate_name": "sim_table_fs",
+      "group": "workspace",
+      "manifest": "crates/sim-table-fs/Cargo.toml",
+      "package": "sim-table-fs",
+      "summary": "Filesystem-backed table store for SIM."
+    },
+    {
+      "crate_name": "sim_table_hash",
+      "group": "workspace",
+      "manifest": "crates/sim-table-hash/Cargo.toml",
+      "package": "sim-table-hash",
+      "summary": "Hash-map table backend for the SIM constellation."
+    },
+    {
+      "crate_name": "sim_table_http",
+      "group": "workspace",
+      "manifest": "crates/sim-table-http/Cargo.toml",
+      "package": "sim-table-http",
+      "summary": "HTTP-backed table directory backend for SIM."
+    },
+    {
+      "crate_name": "sim_table_lazy",
+      "group": "workspace",
+      "manifest": "crates/sim-table-lazy/Cargo.toml",
+      "package": "sim-table-lazy",
+      "summary": "Lazy table backend for the SIM constellation."
+    },
+    {
+      "crate_name": "sim_table_override",
+      "group": "workspace",
+      "manifest": "crates/sim-table-override/Cargo.toml",
+      "package": "sim-table-override",
+      "summary": "Override (overlay) table backend for the SIM constellation."
+    },
+    {
+      "crate_name": "xtask",
+      "group": "workspace",
+      "manifest": "xtask/Cargo.toml",
+      "package": "xtask",
+      "summary": "SIM workspace package for xtask."
+    }
+  ]
 }
