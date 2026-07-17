@@ -7,7 +7,7 @@ use std::{
 
 use sim_codec_lisp::LispCodecLib;
 use sim_kernel::{
-    DefaultFactory, EagerPolicy, Expr, ObjectEncode, ObjectEncoding, Symbol, Table,
+    DefaultFactory, Dir, EagerPolicy, Expr, ObjectEncode, ObjectEncoding, Symbol, Table,
     read_construct_capability,
 };
 
@@ -129,6 +129,29 @@ fn http_get_returns_decoded_body() {
 }
 
 #[test]
+fn http_key_segments_are_percent_encoded() {
+    let key = format!("a b?#%{}", char::from_u32(0x00e9).unwrap());
+    let (base_url, handle) = serve_once(|request, stream| {
+        assert_eq!(
+            request.request_line,
+            "GET /items/a%20b%3F%23%25%C3%A9 HTTP/1.1"
+        );
+        write_response(stream, "200 OK", br#""encoded""#);
+    });
+    let mut cx = cx();
+    grant(&mut cx);
+    let dir = table(base_url, 1024);
+
+    let value = dir.get(&mut cx, Symbol::new(key)).unwrap();
+
+    assert_eq!(
+        value.object().as_expr(&mut cx).unwrap(),
+        Expr::String("encoded".to_owned())
+    );
+    handle.join().unwrap();
+}
+
+#[test]
 fn http_set_sends_encoded_body_with_configured_method() {
     let (base_url, handle) = serve_once(|request, stream| {
         assert_eq!(request.request_line, "POST /items/alpha HTTP/1.1");
@@ -211,6 +234,44 @@ fn http_has_maps_404_to_false() {
 
     assert!(!dir.has(&mut cx, Symbol::new("missing")).unwrap());
     handle.join().unwrap();
+}
+
+#[test]
+fn http_dir_does_not_fabricate_directory_existence() {
+    let mut cx = cx();
+    grant(&mut cx);
+    let dir = table("http://127.0.0.1:1/items".to_owned(), 1024);
+
+    let err = dir.is_dir(&mut cx, Symbol::new("anything")).unwrap_err();
+
+    assert!(err.to_string().contains("requires an index resource"));
+}
+
+#[test]
+fn http_dir_child_operations_require_index_resource() {
+    let mut cx = cx();
+    grant(&mut cx);
+    let dir = table("http://127.0.0.1:1/items".to_owned(), 1024);
+
+    let mkdir = dir.mkdir(&mut cx, Symbol::new("child")).unwrap_err();
+    let opendir = dir.opendir(&mut cx, Symbol::new("child")).unwrap_err();
+    let rmdir = dir.rmdir(&mut cx, Symbol::new("child")).unwrap_err();
+
+    assert!(
+        mkdir
+            .to_string()
+            .contains("mkdir requires an index resource")
+    );
+    assert!(
+        opendir
+            .to_string()
+            .contains("opendir requires an index resource")
+    );
+    assert!(
+        rmdir
+            .to_string()
+            .contains("rmdir requires an index resource")
+    );
 }
 
 #[test]

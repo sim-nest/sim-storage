@@ -121,16 +121,6 @@ impl HttpDir {
         &self.options
     }
 
-    fn child(&self, key: &Symbol) -> Result<Self> {
-        Self::new(HttpDirOptions {
-            base_url: self.url_for_key(key)?,
-            codec: self.options.codec.clone(),
-            write_method: self.options.write_method,
-            timeout_ms: self.options.timeout_ms,
-            max_body_bytes: self.options.max_body_bytes,
-        })
-    }
-
     fn request(&self, method: &'static str, url: String, body: Vec<u8>) -> HttpRequest {
         HttpRequest {
             method,
@@ -147,7 +137,8 @@ impl HttpDir {
         if !sim_table_core::is_legal_table_segment(segment) {
             return Err(Error::Eval(format!("table/http: illegal name {segment:?}")));
         }
-        Ok(format!("{}/{segment}", self.options.base_url))
+        let encoded = encode_path_segment(segment);
+        Ok(format!("{}/{}", self.options.base_url, encoded))
     }
 
     fn decode_body(&self, cx: &mut Cx, body: Vec<u8>) -> Result<Value> {
@@ -332,22 +323,26 @@ impl Table for HttpDir {
 impl Dir for HttpDir {
     fn mkdir(&self, cx: &mut Cx, name: Symbol) -> Result<Value> {
         require_table_http(cx)?;
-        cx.factory().opaque(Arc::new(self.child(&name)?))
+        let _ = self.url_for_key(&name)?;
+        Err(index_resource_error("mkdir"))
     }
 
     fn opendir(&self, cx: &mut Cx, name: Symbol) -> Result<Option<Value>> {
         require_table_http(cx)?;
-        Ok(Some(cx.factory().opaque(Arc::new(self.child(&name)?))?))
+        let _ = self.url_for_key(&name)?;
+        Err(index_resource_error("opendir"))
     }
 
     fn rmdir(&self, cx: &mut Cx, name: Symbol) -> Result<Value> {
-        self.del(cx, name)
+        require_table_http(cx)?;
+        let _ = self.url_for_key(&name)?;
+        Err(index_resource_error("rmdir"))
     }
 
     fn is_dir(&self, cx: &mut Cx, name: Symbol) -> Result<bool> {
         require_table_http(cx)?;
         let _ = self.url_for_key(&name)?;
-        Ok(true)
+        Err(index_resource_error("is_dir"))
     }
 }
 
@@ -373,6 +368,35 @@ fn validate_options(options: &HttpDirOptions) -> Result<()> {
 fn normalize_options(mut options: HttpDirOptions) -> HttpDirOptions {
     options.base_url = options.base_url.trim().trim_end_matches('/').to_owned();
     options
+}
+
+fn encode_path_segment(segment: &str) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+
+    let mut encoded = String::with_capacity(segment.len());
+    for &byte in segment.as_bytes() {
+        if is_unreserved_path_byte(byte) {
+            encoded.push(byte as char);
+        } else {
+            encoded.push('%');
+            encoded.push(HEX[(byte >> 4) as usize] as char);
+            encoded.push(HEX[(byte & 0x0f) as usize] as char);
+        }
+    }
+    encoded
+}
+
+fn is_unreserved_path_byte(byte: u8) -> bool {
+    matches!(
+        byte,
+        b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~'
+    )
+}
+
+fn index_resource_error(operation: &str) -> Error {
+    Error::Eval(format!(
+        "table/http: {operation} requires an index resource"
+    ))
 }
 
 fn ensure_success(status: u16, reason: Option<&str>, body: &[u8]) -> Result<()> {

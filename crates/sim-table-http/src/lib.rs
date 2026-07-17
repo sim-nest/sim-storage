@@ -3,10 +3,12 @@
 //! HTTP-backed table directory backend for SIM.
 //!
 //! `HttpDir` treats each table key as a resource below a configured base URL.
-//! Reads perform bounded `GET` requests, writes perform bounded `PUT` or `POST`
-//! requests, and deletes perform bounded `DELETE` requests. Every effectful
-//! operation requires the canonical `net/http` capability, with the compatibility
-//! aliases accepted by `sim-table-core`.
+//! Keys are percent-encoded as one URL path segment. Reads perform bounded `GET`
+//! requests, writes perform bounded `PUT` or `POST` requests, and deletes
+//! perform bounded `DELETE` requests. Directory traversal methods return an
+//! unsupported error unless an indexed HTTP resource is added by a caller.
+//! Every effectful operation requires the canonical `net/http` capability, with
+//! the compatibility aliases accepted by `sim-table-core`.
 
 mod capabilities;
 mod citizen;
