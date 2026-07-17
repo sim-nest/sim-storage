@@ -11,13 +11,13 @@ use sim_kernel::{Cx, Error, Expr, Result, Symbol};
 
 use crate::{
     FsDir,
-    capabilities::{require_table_fs_edit, require_table_fs_read},
+    capabilities::{require_table_fs_edit, require_table_fs_read, require_table_fs_write},
 };
 
 impl FsDir {
     /// Applies an exact text replacement to a string leaf and atomically writes it.
     ///
-    /// Requires `fs/read` and `edit`. It does not require `fs/write`.
+    /// Requires `fs/read`, `fs/write`, and `edit`.
     pub fn edit(
         &self,
         cx: &mut Cx,
@@ -31,7 +31,7 @@ impl FsDir {
 
     /// Applies a 1-based inclusive line-range replacement to a string leaf.
     ///
-    /// Requires `fs/read` and `edit`. It does not require `fs/write`.
+    /// Requires `fs/read`, `fs/write`, and `edit`.
     pub fn edit_lines(
         &self,
         cx: &mut Cx,
@@ -48,6 +48,7 @@ impl FsDir {
         F: FnOnce(&str) -> Result<String>,
     {
         require_table_fs_read(cx)?;
+        require_table_fs_write(cx)?;
         require_table_fs_edit(cx)?;
 
         let (path, ext, expr) = self.read_leaf_expr(cx, &key)?;

@@ -10,7 +10,8 @@
 //! the configured codec. With the optional format features enabled, recognized
 //! extensions (for example `.mid`, `.music`, `.tone`, `.scl`, `.ly`) round-trip
 //! through their domain shapes. `FsDir::edit` patches string leaves with
-//! `fs/read` and `edit`, then writes by same-directory temp file and rename.
+//! `fs/read`, `fs/write`, and `edit`, then writes by same-directory temp file
+//! and rename.
 //! `FsDir::find_grep` and `FsDir::find_glob` search the directory read-only
 //! with `fs/read` and `find`.
 

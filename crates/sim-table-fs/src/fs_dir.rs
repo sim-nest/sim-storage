@@ -286,23 +286,14 @@ impl Table for FsDir {
     }
 
     fn del(&self, cx: &mut Cx, key: Symbol) -> Result<Value> {
+        require_table_fs_read(cx)?;
         require_table_fs_write(cx)?;
         match self.leaf_path_for_read(&key)? {
             Some((path, ext)) => {
-                let bytes = std::fs::read(&path).unwrap_or_default();
+                let expr = self.read_leaf_path(cx, &path, ext)?;
                 std::fs::remove_file(&path)
                     .map_err(|err| Error::Eval(format!("table/fs: del {err}")))?;
-                let expr = match decode_expr_for_ext(ext, &bytes) {
-                    Some(expr) => expr,
-                    None => {
-                        let codec = Self::codec_for_ext(ext)?;
-                        Self::decode_expr_bytes(cx, &codec, &bytes)
-                    }
-                };
-                match expr {
-                    Ok(expr) => cx.factory().expr(expr),
-                    Err(_) => cx.factory().nil(),
-                }
+                cx.factory().expr(expr)
             }
             None => cx.factory().nil(),
         }
