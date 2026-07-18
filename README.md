@@ -83,7 +83,7 @@ repository supplies the behavior, not the protocol.
 | `sim-table-hash` | Hash-map table backend: `HashTable` stores symbol-keyed entries in an in-memory hash map, satisfying the kernel `TableBackend` contract. Installs via `install_hash_table_lib`. |
 | `sim-table-lazy` | Lazy table backend: `LazyTable` produces entry values through `ValueLoader` closures that run at most once and memoize their result. Installs via `install_lazy_table_lib`. |
 | `sim-table-override` | Overlay table backend: `OverrideTable` layers one or more tables over a base table, resolving lookups front-to-back so upper layers shadow lower ones. Installs via `install_override_table_lib`. |
-| `sim-table-db` | Db-backed table backend: `DbDir` is a path-addressed directory tree of symbol-keyed values that satisfies the kernel table and directory contracts under capability control. Installs via `install_db_dir_lib`. |
+| `sim-table-db` | In-memory directory-table backend: `DbDir` is a path-addressed tree of symbol-keyed values that satisfies the kernel table and directory contracts under capability control. It is not an external database engine. Installs via `install_db_dir_lib`. |
 | `sim-table-fs` | Filesystem directory backend: `FsDir` exposes a host directory as a path-addressed table with codec-by-extension leaves and capability-gated mutation. Installs via `install_fs_dir_lib`. |
 
 ## Backends as loadable libraries
@@ -99,10 +99,12 @@ surface uniform across backends.
 
 ## Validation
 
-These commands run in the constellation workspace; only `sim-kernel` builds from a lone clone today (see `DEVELOPING.md` in `sim-sdk`). A single-repo build lands with the first crates.io publish.
+This repository is self-contained and builds against the published SIM crates
+on crates.io. Run the same validation sequence used by the control-plane
+manifest and the generated-doc freshness gate:
 
 ```bash
-cargo fmt --check && cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo doc --workspace --no-deps
+cargo fmt --all --check && cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings && cargo doc --workspace --no-deps
 cargo run -p xtask -- simdoc --check
 ```
 
@@ -135,6 +137,6 @@ the crate to build.
 
 ### Examples and recipes
 
-These crates ship no `recipes/` tree; their examples are their rustdoc doctests.
-Recipes that exercise the storage backends end to end live in the crates that
-load a runtime to drive them.
+`sim-table-fs` and `sim-table-http` ship `recipes/` trees with descriptor
+recipes for filesystem and HTTP-backed storage flows. The other storage crates
+use rustdoc examples as their executable examples.

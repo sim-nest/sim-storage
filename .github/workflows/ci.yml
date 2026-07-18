@@ -18,3 +18,4 @@ jobs:
       - run: cargo doc --workspace --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
+      - run: cargo run -p xtask -- simdoc --check
