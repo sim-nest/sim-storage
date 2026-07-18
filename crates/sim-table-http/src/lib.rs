@@ -13,11 +13,13 @@
 mod capabilities;
 mod citizen;
 mod http_dir;
+mod options;
 mod transport;
 
 pub use capabilities::{require_table_http, table_http_capability};
 pub use citizen::{HttpDirDescriptor, http_dir_class_symbol};
-pub use http_dir::{HttpDir, HttpDirOptions, HttpWriteMethod, install_http_dir_lib};
+pub use http_dir::{HttpDir, install_http_dir_lib};
+pub use options::{HttpDirOptions, HttpWriteMethod};
 
 /// Cookbook recipes for this lib, embedded at build time.
 pub static RECIPES: sim_cookbook::EmbeddedDir =

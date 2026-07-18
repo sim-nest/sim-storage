@@ -1,13 +1,7 @@
-use std::{
-    collections::BTreeSet,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{collections::BTreeSet, path::PathBuf, sync::Arc};
 
-use sim_codec::{Input, Output, decode_with_codec, encode_with_codec};
 use sim_kernel::{
-    Cx, EncodeOptions, Error, Expr, Object, ObjectEncode, ObjectEncoding, ReadPolicy, Result,
-    Symbol, Value,
+    Cx, Error, Expr, Object, ObjectEncode, ObjectEncoding, Result, Symbol, Value,
     id::CORE_TABLE_CLASS_ID,
     object::ClassRef,
     table::{Dir, Table},
@@ -16,9 +10,11 @@ use sim_kernel::{
 use crate::{
     capabilities::{require_table_fs_read, require_table_fs_write},
     citizen::fs_dir_class_symbol,
-    roadmap11::{decode_expr_for_ext, encode_expr_for_ext, infer_ext_from_expr, known_exts},
+    roadmap11::{infer_ext_from_expr, known_exts},
     table_fs_capability,
 };
+
+mod leaf_io;
 
 const DEFAULT_EXT: &str = "siml";
 
@@ -39,129 +35,6 @@ impl FsDir {
         let root = std::fs::canonicalize(&root)
             .map_err(|err| Error::Eval(format!("table/fs: cannot open root: {err}")))?;
         Ok(Self { root })
-    }
-
-    fn segment(&self, name: &Symbol) -> Result<PathBuf> {
-        let segment = name.name.as_ref();
-        // The shared predicate rejects empty/`.`/`..`/`/`/`\`; table-fs keeps the
-        // additional, stricter `is_absolute()` guard on top of it.
-        if !sim_table_core::is_legal_table_segment(segment) || Path::new(segment).is_absolute() {
-            return Err(Error::Eval(format!("table/fs: illegal name {segment:?}")));
-        }
-        let path = self.root.join(segment);
-        self.ensure_within_root(&path)?;
-        Ok(path)
-    }
-
-    fn ensure_within_root(&self, path: &Path) -> Result<()> {
-        let candidate = if path.exists() {
-            std::fs::canonicalize(path)
-                .map_err(|err| Error::Eval(format!("table/fs: path check {err}")))?
-        } else {
-            path.to_path_buf()
-        };
-        if candidate.starts_with(&self.root) {
-            Ok(())
-        } else {
-            Err(Error::Eval(format!(
-                "table/fs: path escapes root: {}",
-                path.display()
-            )))
-        }
-    }
-
-    pub(crate) fn ensure_internal_path(&self, path: &Path) -> Result<()> {
-        self.ensure_within_root(path)
-    }
-
-    pub(crate) fn root_path(&self) -> &Path {
-        &self.root
-    }
-
-    fn leaf_candidates(&self, name: &Symbol) -> Result<Vec<(PathBuf, &'static str)>> {
-        let base = self.segment(name)?;
-        let mut matches = Vec::new();
-        for ext in known_exts() {
-            let path = base.with_extension(ext);
-            self.ensure_within_root(&path)?;
-            if path.is_file() {
-                matches.push((path, ext));
-            }
-        }
-        Ok(matches)
-    }
-
-    fn leaf_path_for_read(&self, name: &Symbol) -> Result<Option<(PathBuf, &'static str)>> {
-        let matches = self.leaf_candidates(name)?;
-        match matches.len() {
-            0 => Ok(None),
-            1 => Ok(matches.into_iter().next()),
-            _ => Err(Error::Eval(format!(
-                "table/fs: multiple leaf files found for key {name}"
-            ))),
-        }
-    }
-
-    pub(crate) fn read_leaf_expr(
-        &self,
-        cx: &mut Cx,
-        key: &Symbol,
-    ) -> Result<(PathBuf, &'static str, Expr)> {
-        let Some((path, ext)) = self.leaf_path_for_read(key)? else {
-            return Err(Error::Eval(format!("table/fs: {key} is not a file")));
-        };
-        let expr = self.read_leaf_path(cx, &path, ext)?;
-        Ok((path, ext, expr))
-    }
-
-    pub(crate) fn read_leaf_path(&self, cx: &mut Cx, path: &Path, ext: &str) -> Result<Expr> {
-        self.ensure_internal_path(path)?;
-        let bytes =
-            std::fs::read(path).map_err(|err| Error::Eval(format!("table/fs: read {err}")))?;
-        Ok(match decode_expr_for_ext(ext, &bytes) {
-            Some(expr) => expr?,
-            None => {
-                let codec = Self::codec_for_ext(ext)?;
-                Self::decode_expr_bytes(cx, &codec, &bytes)?
-            }
-        })
-    }
-
-    fn codec_for_ext(ext: &str) -> Result<Symbol> {
-        match ext {
-            "siml" => Ok(Symbol::qualified("codec", "lisp")),
-            "simb" => Ok(Symbol::qualified("codec", "binary")),
-            "simb64" => Ok(Symbol::qualified("codec", "binary-base64")),
-            "simj" => Ok(Symbol::qualified("codec", "json")),
-            "sima" => Ok(Symbol::qualified("codec", "algol")),
-            other => Err(Error::Eval(format!("table/fs: unknown extension {other}"))),
-        }
-    }
-
-    fn decode_expr_bytes(cx: &mut Cx, codec: &Symbol, bytes: &[u8]) -> Result<Expr> {
-        decode_with_codec(
-            cx,
-            codec,
-            Input::Bytes(bytes.to_vec()),
-            ReadPolicy::default(),
-        )
-    }
-
-    fn encode_expr_bytes(cx: &mut Cx, codec: &Symbol, expr: &Expr) -> Result<Vec<u8>> {
-        match encode_with_codec(cx, codec, expr, EncodeOptions::default())? {
-            Output::Text(text) => Ok(text.into_bytes()),
-            Output::Bytes(bytes) => Ok(bytes),
-        }
-    }
-
-    pub(crate) fn encode_leaf_expr(cx: &mut Cx, ext: &str, expr: &Expr) -> Result<Vec<u8>> {
-        match encode_expr_for_ext(ext, expr) {
-            Some(bytes) => bytes,
-            None => {
-                let codec = Symbol::qualified("codec", "lisp");
-                Self::encode_expr_bytes(cx, &codec, expr)
-            }
-        }
     }
 }
 

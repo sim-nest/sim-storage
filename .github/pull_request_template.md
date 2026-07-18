@@ -5,6 +5,7 @@
 ## Checklist
 
 - [ ] `cargo fmt --all --check` passes
+- [ ] `cargo run -p xtask -- check-file-sizes` passes
 - [ ] `cargo clippy --workspace --all-targets -- -D warnings` passes
 - [ ] `cargo test --workspace` passes
 - [ ] `cargo doc --workspace --no-deps` passes

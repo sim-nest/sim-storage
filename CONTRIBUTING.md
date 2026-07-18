@@ -17,6 +17,7 @@ crates.io -- no extra tooling or sibling checkouts are required:
 Every PR runs these gates in CI, and they must be green before merge:
 
 - `cargo fmt --all --check`
+- `cargo run -p xtask -- check-file-sizes`
 - `cargo test --workspace`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo doc --workspace --no-deps`
