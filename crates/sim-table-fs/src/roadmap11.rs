@@ -14,7 +14,7 @@ use sim_lib_midi_shapes::{decode_smf_file, encode_smf_file};
 use sim_lib_midi_smf::{read_smf, write_smf};
 #[cfg(feature = "notation")]
 use sim_lib_music_notation::{export_lilypond, import_lilypond};
-#[cfg(feature = "music")]
+#[cfg(any(feature = "music", feature = "notation"))]
 use sim_lib_music_shapes::{decode_music_file, encode_music_file};
 #[cfg(feature = "sound")]
 use sim_lib_sound_shapes::{decode_tone, encode_tone};
@@ -175,7 +175,7 @@ fn decode_music(bytes: &[u8]) -> sim_kernel::Result<Expr> {
         .map_err(|err| Error::Eval(format!("table/fs: music decode {err}")))?;
     Ok(Expr::Extension {
         tag: Symbol::qualified("music", "Score"),
-        payload: Box::new(Expr::String(encode_music_file(&score))),
+        payload: Box::new(Expr::String(encode_score_payload(&score)?)),
     })
 }
 
@@ -183,12 +183,36 @@ fn decode_music(bytes: &[u8]) -> sim_kernel::Result<Expr> {
 fn encode_music(expr: &Expr) -> sim_kernel::Result<Vec<u8>> {
     let payload = expect_tagged_string(expr, &Symbol::qualified("music", "Score"))?;
     let score = decode_score_payload(payload)?;
-    Ok(encode_music_file(&score).into_bytes())
+    Ok(encode_score_payload(&score)?.into_bytes())
 }
 
-#[cfg(feature = "music")]
+#[cfg(any(feature = "music", feature = "notation"))]
 fn decode_score_payload(payload: &str) -> sim_kernel::Result<sim_lib_music_core::Score> {
     decode_music_file(payload).map_err(|err| Error::Eval(format!("table/fs: music shape {err}")))
+}
+
+#[cfg(any(feature = "music", feature = "notation"))]
+fn encode_score_payload(score: &sim_lib_music_core::Score) -> sim_kernel::Result<String> {
+    encode_music_file(score).into_score_payload()
+}
+
+#[cfg(any(feature = "music", feature = "notation"))]
+trait IntoScorePayload {
+    fn into_score_payload(self) -> sim_kernel::Result<String>;
+}
+
+#[cfg(any(feature = "music", feature = "notation"))]
+impl IntoScorePayload for String {
+    fn into_score_payload(self) -> sim_kernel::Result<String> {
+        Ok(self)
+    }
+}
+
+#[cfg(any(feature = "music", feature = "notation"))]
+impl<E: std::fmt::Display> IntoScorePayload for Result<String, E> {
+    fn into_score_payload(self) -> sim_kernel::Result<String> {
+        self.map_err(|err| Error::Eval(format!("table/fs: music encode {err}")))
+    }
 }
 
 #[cfg(feature = "sound")]
@@ -273,7 +297,7 @@ fn decode_lilypond(bytes: &[u8]) -> sim_kernel::Result<Expr> {
         import_lilypond(text).map_err(|err| Error::Eval(format!("table/fs: lilypond {err}")))?;
     Ok(Expr::Extension {
         tag: Symbol::qualified("music", "Score"),
-        payload: Box::new(Expr::String(encode_music_file(&score))),
+        payload: Box::new(Expr::String(encode_score_payload(&score)?)),
     })
 }
 
