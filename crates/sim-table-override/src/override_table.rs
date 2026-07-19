@@ -2,7 +2,10 @@
 //! resolve front-to-back, implementing the kernel table, object-encoding, and
 //! citizen contracts.
 
-use std::collections::BTreeSet;
+use std::{
+    collections::BTreeSet,
+    sync::{Arc, Mutex},
+};
 
 use sim_kernel::{
     Cx, Error, Expr, Object, ObjectEncode, ObjectEncoding, Result, Symbol, Table, Value,
@@ -13,14 +16,17 @@ use sim_kernel::{
 /// front-to-back, so earlier layers shadow later ones.
 ///
 /// Reads (`get`/`has`/`keys`/`entries`/`len`) consult layers in order and take
-/// the first match, while writes (`set`/`del`/`clear`) target only the front
-/// (first) layer. Each layer is itself a table [`Value`]; the override holds
-/// references to them rather than copying their contents, so changes to the
-/// underlying layers are visible through the overlay. Implements the kernel
-/// [`Table`] contract along with the object-encoding and citizen contracts.
+/// the first unmasked match. Writes target the front (first) layer; `del` and
+/// `clear` also record masks so lower-layer values stay hidden until a later
+/// `set` writes that key through the override. Each layer is itself a table
+/// [`Value`]; the override holds references to them rather than copying their
+/// contents, so unmasked changes to the underlying layers are visible through
+/// the overlay. Implements the kernel [`Table`] contract along with the
+/// object-encoding and citizen contracts.
 #[derive(Clone)]
 pub struct OverrideTable {
     layers: Vec<Value>,
+    masked: Arc<Mutex<BTreeSet<Symbol>>>,
 }
 
 impl OverrideTable {
@@ -44,7 +50,10 @@ impl OverrideTable {
                 ));
             }
         }
-        Ok(Self { layers })
+        Ok(Self {
+            layers,
+            masked: Arc::new(Mutex::new(BTreeSet::new())),
+        })
     }
 
     /// The layer tables, ordered front (shadowing) to back (shadowed).
@@ -54,6 +63,29 @@ impl OverrideTable {
 
     fn front(&self) -> &Value {
         &self.layers[0]
+    }
+
+    fn layer_table(layer: &Value) -> &dyn Table {
+        layer
+            .object()
+            .as_table_impl()
+            .expect("validated table layer")
+    }
+
+    fn with_masked<R>(&self, f: impl FnOnce(&mut BTreeSet<Symbol>) -> R) -> Result<R> {
+        let mut masked = self
+            .masked
+            .lock()
+            .map_err(|_| Error::Eval("table/override: mask state lock was poisoned".to_owned()))?;
+        Ok(f(&mut masked))
+    }
+
+    fn masked_snapshot(&self) -> Result<BTreeSet<Symbol>> {
+        self.with_masked(|masked| masked.clone())
+    }
+
+    fn is_masked(&self, key: &Symbol) -> Result<bool> {
+        self.with_masked(|masked| masked.contains(key))
     }
 }
 
@@ -127,11 +159,12 @@ impl Table for OverrideTable {
     }
 
     fn get(&self, cx: &mut Cx, key: Symbol) -> Result<Value> {
+        if self.is_masked(&key)? {
+            return cx.factory().nil();
+        }
+
         for layer in &self.layers {
-            let table = layer
-                .object()
-                .as_table_impl()
-                .expect("validated table layer");
+            let table = Self::layer_table(layer);
             if table.has(cx, key.clone())? {
                 return table.get(cx, key);
             }
@@ -140,21 +173,20 @@ impl Table for OverrideTable {
     }
 
     fn set(&self, cx: &mut Cx, key: Symbol, value: Value) -> Result<()> {
-        self.front()
-            .object()
-            .as_table_impl()
-            .expect("validated table layer")
-            .set(cx, key, value)
+        Self::layer_table(self.front()).set(cx, key.clone(), value)?;
+        self.with_masked(|masked| {
+            masked.remove(&key);
+        })?;
+        Ok(())
     }
 
     fn has(&self, cx: &mut Cx, key: Symbol) -> Result<bool> {
+        if self.is_masked(&key)? {
+            return Ok(false);
+        }
+
         for layer in &self.layers {
-            if layer
-                .object()
-                .as_table_impl()
-                .expect("validated table layer")
-                .has(cx, key.clone())?
-            {
+            if Self::layer_table(layer).has(cx, key.clone())? {
                 return Ok(true);
             }
         }
@@ -162,23 +194,22 @@ impl Table for OverrideTable {
     }
 
     fn del(&self, cx: &mut Cx, key: Symbol) -> Result<Value> {
-        self.front()
-            .object()
-            .as_table_impl()
-            .expect("validated table layer")
-            .del(cx, key)
+        let removed = Self::layer_table(self.front()).del(cx, key.clone())?;
+        self.with_masked(|masked| {
+            masked.insert(key);
+        })?;
+        Ok(removed)
     }
 
     fn keys(&self, cx: &mut Cx) -> Result<Vec<Symbol>> {
+        let masked = self.masked_snapshot()?;
         let mut seen = BTreeSet::new();
         let mut out = Vec::new();
         for layer in &self.layers {
-            for key in layer
-                .object()
-                .as_table_impl()
-                .expect("validated table layer")
-                .keys(cx)?
-            {
+            for key in Self::layer_table(layer).keys(cx)? {
+                if masked.contains(&key) {
+                    continue;
+                }
                 if seen.insert(key.clone()) {
                     out.push(key);
                 }
@@ -188,15 +219,14 @@ impl Table for OverrideTable {
     }
 
     fn entries(&self, cx: &mut Cx) -> Result<Vec<(Symbol, Value)>> {
+        let masked = self.masked_snapshot()?;
         let mut seen = BTreeSet::new();
         let mut out = Vec::new();
         for layer in &self.layers {
-            for (key, value) in layer
-                .object()
-                .as_table_impl()
-                .expect("validated table layer")
-                .entries(cx)?
-            {
+            for (key, value) in Self::layer_table(layer).entries(cx)? {
+                if masked.contains(&key) {
+                    continue;
+                }
                 if seen.insert(key.clone()) {
                     out.push((key, value));
                 }
@@ -210,10 +240,11 @@ impl Table for OverrideTable {
     }
 
     fn clear(&self, cx: &mut Cx) -> Result<()> {
-        self.front()
-            .object()
-            .as_table_impl()
-            .expect("validated table layer")
-            .clear(cx)
+        let visible_keys = self.keys(cx)?;
+        Self::layer_table(self.front()).clear(cx)?;
+        self.with_masked(|masked| {
+            masked.extend(visible_keys);
+        })?;
+        Ok(())
     }
 }

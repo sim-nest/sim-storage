@@ -82,7 +82,7 @@ repository supplies the behavior, not the protocol.
 | --- | --- |
 | `sim-table-hash` | Hash-map table backend: `HashTable` stores symbol-keyed entries in an in-memory hash map, satisfying the kernel `TableBackend` contract. Installs via `install_hash_table_lib`. |
 | `sim-table-lazy` | Lazy table backend: `LazyTable` produces entry values through `ValueLoader` closures that run at most once and memoize their result. Installs via `install_lazy_table_lib`. |
-| `sim-table-override` | Overlay table backend: `OverrideTable` layers one or more tables over a base table, resolving lookups front-to-back so upper layers shadow lower ones. Installs via `install_override_table_lib`. |
+| `sim-table-override` | Overlay table backend: `OverrideTable` layers one or more tables over a base table, resolving lookups front-to-back so upper layers shadow lower ones; deletes and clears mask lower entries until a later write reintroduces the key. Installs via `install_override_table_lib`. |
 | `sim-table-db` | In-memory directory-table backend: `DbDir` is a path-addressed tree of symbol-keyed values that satisfies the kernel table and directory contracts under capability control. It is not an external database engine. Installs via `install_db_dir_lib`. |
 | `sim-table-fs` | Filesystem directory backend: `FsDir` exposes a host directory as a path-addressed table with codec-by-extension leaves and capability-gated mutation. Installs via `install_fs_dir_lib`. |
 
