@@ -10,10 +10,7 @@ use sim_kernel::{Error, Result};
 use sim_lib_net_core::{HeadOutcome, HttpBodyMode, UrlParts};
 
 #[cfg(feature = "tls")]
-use rustls::{
-    ClientConfig, ClientConnection, RootCertStore, StreamOwned,
-    pki_types::{CertificateDer, ServerName},
-};
+use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned, pki_types::ServerName};
 #[cfg(feature = "tls")]
 use std::sync::Arc;
 
