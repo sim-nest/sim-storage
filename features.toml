@@ -1,0 +1,61 @@
+schema = "sim.features"
+
+[enforcement.audience]
+framework = "strict"
+
+[enforcement.route]
+major_entrypoints = "advisory"
+frameworks = "advisory"
+
+[[feature]]
+id = "feature/sim-storage/table-dir-backends"
+title = "Table and Dir backends"
+summary = "Provide hash, lazy, override, and list-backed Table/Dir implementations for reusable storage libraries."
+owner = "crate/sim-table-hash"
+audiences = ["code", "framework"]
+guidance = "Use this row when selecting or adding a storage backend for Table and Dir contracts."
+claims_anchors = [
+  "anchor/crate/sim-list-cell",
+  "anchor/crate/sim-list-lazy",
+  "anchor/crate/sim-table-hash",
+  "anchor/crate/sim-table-lazy",
+  "anchor/crate/sim-table-override",
+  "anchor/runtime-lib/sim-list-cell/cons-list-lib",
+  "anchor/runtime-lib/sim-list-lazy/lazy-list-lib",
+  "anchor/runtime-lib/sim-table-hash/hash-table-lib",
+  "anchor/runtime-lib/sim-table-lazy/lazy-table-lib",
+  "anchor/runtime-lib/sim-table-override/override-table-lib",
+]
+claims_specimens = [
+  "spec-test/sim-storage/crates/sim-table-override/src/install",
+]
+
+[[feature]]
+id = "feature/sim-storage/host-storage-primitives"
+title = "Host storage primitives"
+summary = "Connect file, database, and HTTP storage crates to the shared Table and Dir backend shape."
+owner = "crate/sim-table-fs"
+audiences = ["code", "framework"]
+guidance = "Use this row when a host primitive reads or writes through a storage-backed table."
+claims_anchors = [
+  "anchor/crate/sim-table-db",
+  "anchor/crate/sim-table-fs",
+  "anchor/crate/sim-table-http",
+]
+
+[[route]]
+id = "route/add-table-dir-backend"
+task = "Add a Table or Dir backend"
+audiences = ["code", "framework"]
+steps = [
+  { feature = "feature/sim-storage/table-dir-backends", why = "The backend row owns reusable Table and Dir implementations." },
+  { specimen = "spec-test/sim-storage/crates/sim-table-override/src/install", why = "The install test checks a loadable override table backend." },
+]
+
+[[route]]
+id = "route/add-host-storage-primitive"
+task = "Add a host storage primitive"
+audiences = ["code", "framework"]
+steps = [
+  { feature = "feature/sim-storage/host-storage-primitives", why = "The host storage row points to file, database, and HTTP backends." },
+]
