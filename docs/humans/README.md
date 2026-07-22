@@ -19,6 +19,7 @@ This generated lane consumes `docs/generated/sim-index-fragment.sx`. Global inde
 | --- | --- | ---: | --- |
 | `feature/sim-storage/table-dir-backends` | `crate/sim-table-hash` | 1 | Provide hash, lazy, override, and list-backed Table/Dir implementations for reusable storage libraries. |
 | `feature/sim-storage/host-storage-primitives` | `crate/sim-table-fs` | 0 | Connect file, database, and HTTP storage crates to the shared Table and Dir backend shape. |
+| `feature/sim-storage/contract-emitter` | `crate/xtask` | 0 | Emit generated repository contract and index fragments for storage crates. |
 
 ## Surfaces
 

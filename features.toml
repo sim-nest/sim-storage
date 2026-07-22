@@ -2,6 +2,7 @@ schema = "sim.features"
 
 [enforcement.audience]
 framework = "strict"
+code = "strict"
 
 [enforcement.route]
 major_entrypoints = "advisory"
@@ -43,12 +44,27 @@ claims_anchors = [
   "anchor/crate/sim-table-http",
 ]
 
+[[feature]]
+id = "feature/sim-storage/contract-emitter"
+title = "Storage contract emitter"
+summary = "Emit generated repository contract and index fragments for storage crates."
+owner = "crate/xtask"
+audiences = ["code"]
+guidance = "Use this row when refreshing generated storage contract evidence."
+claims_anchors = [
+  "anchor/crate/xtask",
+]
+supports = [
+  "feature/sim-storage/table-dir-backends",
+]
+
 [[route]]
 id = "route/add-table-dir-backend"
 task = "Add a Table or Dir backend"
 audiences = ["code", "framework"]
 steps = [
   { feature = "feature/sim-storage/table-dir-backends", why = "The backend row owns reusable Table and Dir implementations." },
+  { feature = "feature/sim-storage/contract-emitter", why = "The emitter row keeps generated storage contract evidence current." },
   { specimen = "spec-test/sim-storage/crates/sim-table-override/src/install", why = "The install test checks a loadable override table backend." },
 ]
 
