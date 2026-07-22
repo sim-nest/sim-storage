@@ -5,9 +5,11 @@
 ## Checklist
 
 - [ ] `cargo fmt --all --check` passes
+- [ ] `cargo run -p xtask -- check-file-sizes` passes
 - [ ] `cargo clippy --workspace --all-targets -- -D warnings` passes
 - [ ] `cargo test --workspace` passes
 - [ ] `cargo doc --workspace --no-deps` passes
+- [ ] `cargo run -p xtask -- simdoc --check` passes
 - [ ] Tests added/updated for the behavior changed
 - [ ] Source and Markdown are ASCII-only
 - [ ] Commits are signed off (DCO: `git commit -s`)

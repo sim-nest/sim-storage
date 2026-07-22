@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use sim_kernel::{
-    Args, CapabilitySet, Cx, DefaultFactory, NoopEvalPolicy, ObjectEncoding, ReadPolicy, Symbol,
-    TrustLevel, Value, read_construct_capability,
+    Args, CapabilitySet, Cx, DefaultFactory, Expr, NoopEvalPolicy, ObjectEncoding, ReadPolicy,
+    Symbol, TrustLevel, Value, read_construct_capability,
 };
 
 use crate::{OverrideTable, construct_override_table, install_override_table_lib};
@@ -19,6 +19,15 @@ fn table(cx: &mut Cx, entries: &[(&str, Value)]) -> Value {
             .collect(),
     )
     .unwrap()
+}
+
+fn value_expr(cx: &mut Cx, value: Value) -> Expr {
+    value.object().as_expr(cx).unwrap()
+}
+
+fn get_expr(cx: &mut Cx, table: &dyn sim_kernel::Table, key: &str) -> Expr {
+    let value = table.get(cx, Symbol::new(key)).unwrap();
+    value_expr(cx, value)
 }
 
 fn read_policy(capabilities: &[sim_kernel::CapabilityName]) -> ReadPolicy {
@@ -84,6 +93,104 @@ fn override_table_front_shadows_and_writes_to_front() {
             .has(&mut cx, Symbol::new("c"))
             .unwrap()
     );
+}
+
+#[test]
+fn override_table_del_masks_front_and_lower_layers_until_set() {
+    let mut cx = test_cx();
+    let front_value = cx.factory().string("front-b".to_owned()).unwrap();
+    let back_value = cx.factory().string("back-b".to_owned()).unwrap();
+    let replacement = cx.factory().string("new-b".to_owned()).unwrap();
+    let front = table(&mut cx, &[("b", front_value)]);
+    let back = table(&mut cx, &[("b", back_value)]);
+    let value = construct_override_table(&mut cx, vec![front, back]).unwrap();
+    let override_table = value.object().as_table_impl().unwrap();
+
+    let removed = override_table.del(&mut cx, Symbol::new("b")).unwrap();
+    assert_eq!(
+        value_expr(&mut cx, removed),
+        Expr::String("front-b".to_owned())
+    );
+    assert_eq!(get_expr(&mut cx, override_table, "b"), Expr::Nil);
+    assert!(!override_table.has(&mut cx, Symbol::new("b")).unwrap());
+    assert!(
+        !override_table
+            .keys(&mut cx)
+            .unwrap()
+            .contains(&Symbol::new("b"))
+    );
+    assert!(
+        !override_table
+            .entries(&mut cx)
+            .unwrap()
+            .iter()
+            .any(|(key, _)| key == &Symbol::new("b"))
+    );
+
+    override_table
+        .set(&mut cx, Symbol::new("b"), replacement)
+        .unwrap();
+    assert_eq!(
+        get_expr(&mut cx, override_table, "b"),
+        Expr::String("new-b".to_owned())
+    );
+    assert!(override_table.has(&mut cx, Symbol::new("b")).unwrap());
+    assert!(
+        override_table
+            .keys(&mut cx)
+            .unwrap()
+            .contains(&Symbol::new("b"))
+    );
+}
+
+#[test]
+fn override_table_del_masks_base_only_key() {
+    let mut cx = test_cx();
+    let back_value = cx.factory().string("back-a".to_owned()).unwrap();
+    let front = table(&mut cx, &[]);
+    let back = table(&mut cx, &[("a", back_value)]);
+    let value = construct_override_table(&mut cx, vec![front, back]).unwrap();
+    let override_table = value.object().as_table_impl().unwrap();
+
+    let removed = override_table.del(&mut cx, Symbol::new("a")).unwrap();
+    assert_eq!(value_expr(&mut cx, removed), Expr::Nil);
+    assert_eq!(get_expr(&mut cx, override_table, "a"), Expr::Nil);
+    assert!(!override_table.has(&mut cx, Symbol::new("a")).unwrap());
+    assert!(
+        !override_table
+            .keys(&mut cx)
+            .unwrap()
+            .contains(&Symbol::new("a"))
+    );
+}
+
+#[test]
+fn override_table_clear_masks_visible_keys() {
+    let mut cx = test_cx();
+    let front_value = cx.factory().string("front-b".to_owned()).unwrap();
+    let back_value = cx.factory().string("back-a".to_owned()).unwrap();
+    let replacement = cx.factory().string("new-a".to_owned()).unwrap();
+    let front = table(&mut cx, &[("b", front_value)]);
+    let back = table(&mut cx, &[("a", back_value)]);
+    let value = construct_override_table(&mut cx, vec![front, back]).unwrap();
+    let override_table = value.object().as_table_impl().unwrap();
+
+    override_table.clear(&mut cx).unwrap();
+
+    assert_eq!(override_table.keys(&mut cx).unwrap(), Vec::<Symbol>::new());
+    assert!(override_table.entries(&mut cx).unwrap().is_empty());
+    assert_eq!(override_table.len(&mut cx).unwrap(), 0);
+    assert_eq!(get_expr(&mut cx, override_table, "a"), Expr::Nil);
+    assert_eq!(get_expr(&mut cx, override_table, "b"), Expr::Nil);
+
+    override_table
+        .set(&mut cx, Symbol::new("a"), replacement)
+        .unwrap();
+    assert_eq!(
+        get_expr(&mut cx, override_table, "a"),
+        Expr::String("new-a".to_owned())
+    );
+    assert!(override_table.has(&mut cx, Symbol::new("a")).unwrap());
 }
 
 #[test]

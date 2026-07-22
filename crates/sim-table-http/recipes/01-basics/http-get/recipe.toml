@@ -1,0 +1,8 @@
+id = "http-get"
+title = "HTTP table read descriptor"
+codec = "lisp"
+setup = "setup.siml"
+purpose = "purpose.md"
+order = 10
+tags = ["http", "table", "network", "capability"]
+requires = ["core"]

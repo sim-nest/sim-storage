@@ -2,14 +2,14 @@ use std::sync::Arc;
 
 use sim_kernel::{
     DefaultFactory, EagerPolicy, Expr, Object, ObjectCompat, ObjectEncoding, Symbol,
-    capability::{
-        table_db_capability, table_db_mkdir_capability, table_db_read_capability,
-        table_db_rmdir_capability, table_db_write_capability,
-    },
     read_construct_capability,
 };
 
-use crate::{DbDir, DbDirDescriptor, db_dir_class_symbol, install_db_dir_lib};
+use crate::{
+    DbDir, DbDirDescriptor, db_dir_class_symbol, install_db_dir_lib, table_db_capability,
+    table_db_mkdir_capability, table_db_read_capability, table_db_rmdir_capability,
+    table_db_write_capability,
+};
 
 fn cx() -> sim_kernel::Cx {
     let mut cx = sim_kernel::Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));

@@ -2,8 +2,10 @@
 //!
 //! Provides an [`OverrideTable`] that layers one or more tables over a base
 //! table, resolving lookups front-to-back so upper layers shadow lower ones.
-//! It satisfies the kernel table contract and is registered as a loadable
-//! library through [`install_override_table_lib`].
+//! Deletes and clears record masks, so lower-layer entries stay hidden until a
+//! later write through the override reintroduces the key. It satisfies the
+//! kernel table contract and is registered as a loadable library through
+//! [`install_override_table_lib`].
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]

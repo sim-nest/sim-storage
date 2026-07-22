@@ -1,0 +1,3 @@
+(table/get
+  (table/http "http://127.0.0.1:8080/items" :codec codec/lisp :timeout-ms 1000 :max-body-bytes 4096)
+  alpha)

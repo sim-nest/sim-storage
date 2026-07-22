@@ -1,0 +1,3 @@
+title = "Basics"
+order = 10
+summary = "Descriptor recipes for HTTP-backed table resources."

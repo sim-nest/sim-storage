@@ -10,16 +10,15 @@ use std::{
 
 use sim_kernel::{
     Cx, Error, Expr, Object, ObjectEncode, ObjectEncoding, Result, Symbol, Value,
-    capability::{
-        table_db_capability, table_db_mkdir_capability, table_db_read_capability,
-        table_db_rmdir_capability, table_db_write_capability,
-    },
     id::CORE_TABLE_CLASS_ID,
     object::ClassRef,
     table::{Dir, Table},
 };
 
-use crate::citizen::db_dir_class_symbol;
+use crate::{
+    citizen::db_dir_class_symbol, table_db_capability, table_db_mkdir_capability,
+    table_db_read_capability, table_db_rmdir_capability, table_db_write_capability,
+};
 
 struct Store {
     values: BTreeMap<(String, Symbol), Value>,
@@ -352,11 +351,11 @@ impl Dir for DbDir {
 ///
 /// ```
 /// use std::sync::Arc;
-/// use sim_kernel::{
-///     Cx, DefaultFactory, EagerPolicy, Symbol, Table,
-///     capability::{table_db_capability, table_db_read_capability, table_db_write_capability},
+/// use sim_kernel::{Cx, DefaultFactory, EagerPolicy, Symbol, Table};
+/// use sim_table_db::{
+///     install_db_dir_lib, table_db_capability, table_db_read_capability,
+///     table_db_write_capability,
 /// };
-/// use sim_table_db::install_db_dir_lib;
 ///
 /// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
 /// cx.grant(table_db_capability());

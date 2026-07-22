@@ -1,6 +1,6 @@
 {
   "generator": "xtask crate-catalog v1",
-  "package_count": 7,
+  "package_count": 9,
   "packages": [
     {
       "description": "SIM workspace package for sim list cell.",
@@ -39,6 +39,19 @@
       ]
     },
     {
+      "description": "SIM workspace package for sim table fs.",
+      "generated_readme": true,
+      "manifest": "crates/sim-table-fs/Cargo.toml",
+      "name": "sim-table-fs",
+      "publish": "true",
+      "readme": "crates/sim-table-fs/README.md",
+      "root": "crates/sim-table-fs",
+      "target_kinds": [
+        "custom-build",
+        "lib"
+      ]
+    },
+    {
       "description": "SIM workspace package for sim table hash.",
       "generated_readme": true,
       "manifest": "crates/sim-table-hash/Cargo.toml",
@@ -47,6 +60,19 @@
       "readme": "crates/sim-table-hash/README.md",
       "root": "crates/sim-table-hash",
       "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "Capability-gated HTTP table directory backend for SIM.",
+      "generated_readme": true,
+      "manifest": "crates/sim-table-http/Cargo.toml",
+      "name": "sim-table-http",
+      "publish": "true",
+      "readme": "crates/sim-table-http/README.md",
+      "root": "crates/sim-table-http",
+      "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },

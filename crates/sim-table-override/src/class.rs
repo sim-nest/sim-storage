@@ -21,7 +21,7 @@ use crate::OverrideTable;
 ///
 /// ```
 /// use std::sync::Arc;
-/// use sim_kernel::{Cx, DefaultFactory, NoopEvalPolicy, Symbol, Table};
+/// use sim_kernel::{Cx, DefaultFactory, Expr, NoopEvalPolicy, Symbol, Table};
 /// use sim_table_override::construct_override_table;
 ///
 /// let mut cx = Cx::new(Arc::new(NoopEvalPolicy), Arc::new(DefaultFactory));
@@ -34,6 +34,13 @@ use crate::OverrideTable;
 /// let table = overlay.object().as_table_impl().unwrap();
 /// // The front layer shadows the back layer.
 /// assert_eq!(table.get(&mut cx, Symbol::new("k")).unwrap(), shadow);
+/// // Deleting through the override hides lower layers until the key is set again.
+/// table.del(&mut cx, Symbol::new("k")).unwrap();
+/// let deleted = table.get(&mut cx, Symbol::new("k")).unwrap();
+/// assert_eq!(
+///     deleted.object().as_expr(&mut cx).unwrap(),
+///     Expr::Nil
+/// );
 /// ```
 pub fn construct_override_table(cx: &mut Cx, args: Vec<Value>) -> Result<Value> {
     let table = OverrideTable::new(args)?;
