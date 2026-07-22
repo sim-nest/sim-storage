@@ -1,5 +1,7 @@
 use super::support::*;
 
+// conformance: host storage primitives read and write Table rows.
+
 #[test]
 fn fs_dir_set_get_roundtrip_and_extension_selection() {
     let mut cx = cx();
