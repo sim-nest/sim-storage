@@ -1,0 +1,12 @@
+id = "backend-composition"
+title = "Compose table backends"
+codec = "lisp"
+setup = "setup.siml"
+purpose = "purpose.md"
+order = 10
+tags = ["table", "dir", "mount", "composition", "capability", "allow-capability:table.mount", "allow-capability:table.db", "allow-capability:table.db.read", "allow-capability:table.db.write", "allow-capability:table.db.mkdir"]
+requires = ["core"]
+
+[[expect]]
+form = 0
+result = "((path \"/lookup\" kind table/mount/table) (path \"/scratch\" kind table/mount/dir))"

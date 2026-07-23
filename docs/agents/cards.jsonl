@@ -11,3 +11,8 @@
 {"kind":"recipe","path":"crates/sim-table-http/recipes/01-basics/http-get/recipe.toml"}
 {"kind":"recipe","path":"crates/sim-table-http/recipes/01-basics/http-get/setup.siml"}
 {"kind":"recipe","path":"crates/sim-table-http/recipes/book.toml"}
+{"kind":"recipe","path":"crates/sim-table-mount/recipes/01-basics/backend-composition/purpose.md"}
+{"kind":"recipe","path":"crates/sim-table-mount/recipes/01-basics/backend-composition/recipe.toml"}
+{"kind":"recipe","path":"crates/sim-table-mount/recipes/01-basics/backend-composition/setup.siml"}
+{"kind":"recipe","path":"crates/sim-table-mount/recipes/01-basics/chapter.toml"}
+{"kind":"recipe","path":"crates/sim-table-mount/recipes/book.toml"}
