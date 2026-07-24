@@ -16,7 +16,7 @@ frameworks = "advisory"
 [[feature]]
 id = "feature/sim-storage/table-dir-backends"
 title = "Table and Dir backends"
-summary = "Provide hash, lazy, override, and list-backed Table/Dir implementations for reusable storage libraries."
+summary = "Provide hash, lazy, override, mounted, and list-backed Table/Dir implementations for reusable storage libraries."
 owner = "crate/sim-table-hash"
 audiences = ["code", "framework"]
 guidance = "Use this row when selecting or adding a storage backend for Table and Dir contracts."
@@ -25,15 +25,36 @@ claims_anchors = [
   "anchor/crate/sim-list-lazy",
   "anchor/crate/sim-table-hash",
   "anchor/crate/sim-table-lazy",
+  "anchor/crate/sim-table-mount",
   "anchor/crate/sim-table-override",
   "anchor/runtime-lib/sim-list-cell/cons-list-lib",
   "anchor/runtime-lib/sim-list-lazy/lazy-list-lib",
   "anchor/runtime-lib/sim-table-hash/hash-table-lib",
   "anchor/runtime-lib/sim-table-lazy/lazy-table-lib",
+  "anchor/runtime-lib/sim-table-mount/mount-dir-lib",
   "anchor/runtime-lib/sim-table-override/override-table-lib",
 ]
 claims_specimens = [
+  "spec-test/sim-storage/crates/sim-table-mount/src/tests",
   "spec-test/sim-storage/crates/sim-table-override/src/install",
+]
+
+[[feature]]
+id = "feature/sim-storage/mounted-table-dir-namespace"
+title = "Mounted Table/Dir namespace"
+summary = "Compose multiple Table and Dir backends behind one mounted table dir namespace with explicit mount points."
+owner = "crate/sim-table-mount"
+audiences = ["code", "framework"]
+guidance = "Use this row when a feature needs one mounted table dir namespace assembled from independently owned backends."
+claims_anchors = [
+  "anchor/crate/sim-table-mount",
+  "anchor/runtime-lib/sim-table-mount/mount-dir-lib",
+]
+claims_specimens = [
+  "spec-test/sim-storage/crates/sim-table-mount/src/tests",
+]
+supports = [
+  "feature/sim-storage/table-dir-backends",
 ]
 
 [[feature]]
@@ -72,8 +93,9 @@ task = "Add a Table or Dir backend"
 audiences = ["code", "framework"]
 steps = [
   { feature = "feature/sim-storage/table-dir-backends", why = "The backend row owns reusable Table and Dir implementations." },
+  { feature = "feature/sim-storage/mounted-table-dir-namespace", why = "The mounted namespace row composes independently owned backends without copying their storage behavior." },
   { feature = "feature/sim-storage/contract-emitter", why = "The emitter row keeps generated storage contract evidence current." },
-  { specimen = "spec-test/sim-storage/crates/sim-table-override/src/install", why = "The install test checks a loadable override table backend." },
+  { specimen = "recipe/sim-storage/crates/sim-table-mount/01-basics/backend-composition", why = "The backend-composition recipe exercises the mounted Table/Dir surface." },
 ]
 
 [[route]]

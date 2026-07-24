@@ -1,6 +1,6 @@
 {
   "generator": "xtask crate-catalog v1",
-  "package_count": 9,
+  "package_count": 10,
   "packages": [
     {
       "description": "SIM workspace package for sim list cell.",
@@ -85,6 +85,19 @@
       "readme": "crates/sim-table-lazy/README.md",
       "root": "crates/sim-table-lazy",
       "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "Mounted Table and Dir namespace backend for SIM.",
+      "generated_readme": false,
+      "manifest": "crates/sim-table-mount/Cargo.toml",
+      "name": "sim-table-mount",
+      "publish": "true",
+      "readme": "crates/sim-table-mount/README.md",
+      "root": "crates/sim-table-mount",
+      "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },

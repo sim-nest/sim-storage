@@ -1,0 +1,9 @@
+{
+  (define root (table/db))
+  (define scratch (table/db))
+  (define lookup (table/hash (answer "yes")))
+  (define ns (table/mount/create root))
+  (table/mount/dir ns "/scratch" scratch)
+  (table/mount/table ns "/lookup" lookup)
+  (table/mount/inspect ns)
+}

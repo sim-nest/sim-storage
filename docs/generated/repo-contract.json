@@ -1,5 +1,5 @@
 {
-  "card_count": 4,
+  "card_count": 5,
   "cards": [
     {
       "id": "browse/catalog",
@@ -18,6 +18,12 @@
       "kind": "cookbook-recipe",
       "owner": "sim-table-http",
       "summary": "Direct HTTP resources addressed through the table directory surface."
+    },
+    {
+      "id": "cookbook/storage/table-mount",
+      "kind": "cookbook-recipe",
+      "owner": "sim-table-mount",
+      "summary": "Compose independently owned Table and Dir backends behind one directory view."
     },
     {
       "id": "registry/catalog",
@@ -42,13 +48,14 @@
       "sim-table-hash",
       "sim-table-http",
       "sim-table-lazy",
+      "sim-table-mount",
       "sim-table-override",
       "xtask"
     ]
   },
   "non_citizen_exemption_count": 0,
   "non_citizen_exemptions": [],
-  "package_count": 9,
+  "package_count": 10,
   "packages": [
     {
       "crate_name": "sim_list_cell",
@@ -325,6 +332,44 @@
       ]
     },
     {
+      "crate_name": "sim_table_mount",
+      "dependencies": [],
+      "description": "Mounted Table and Dir namespace backend for SIM.",
+      "features": [],
+      "group": "workspace",
+      "manifest": "crates/sim-table-mount/Cargo.toml",
+      "name": "sim-table-mount",
+      "publish": "true",
+      "root": "crates/sim-table-mount",
+      "rustdoc_summary": "Mounted Table/Dir namespace for SIM storage backends.",
+      "target_kinds": [
+        "custom-build",
+        "lib"
+      ],
+      "targets": [
+        {
+          "crate_types": [
+            "lib"
+          ],
+          "kind": [
+            "lib"
+          ],
+          "name": "sim_table_mount",
+          "src": "crates/sim-table-mount/src/lib.rs"
+        },
+        {
+          "crate_types": [
+            "bin"
+          ],
+          "kind": [
+            "custom-build"
+          ],
+          "name": "build-script-build",
+          "src": "crates/sim-table-mount/build.rs"
+        }
+      ]
+    },
+    {
       "crate_name": "sim_table_override",
       "dependencies": [],
       "description": "SIM workspace package for sim table override.",
@@ -384,10 +429,10 @@
     "generated_by": "cargo run -p xtask -- simdoc",
     "generation_timestamp": "2026-07-16T00:13:38+02:00",
     "generator": "xtask repo-contract v1",
-    "git_commit": "9a9f1487a484eec633f272cce510e8d03da7ba59",
+    "git_commit": "0cb9fcbaa8ed4283511b69c0269f19287c5705ff",
     "repo": "sim-storage",
     "schema": "sim.provenance.v1",
-    "source_commit": "9a9f1487a484eec633f272cce510e8d03da7ba59",
+    "source_commit": "0cb9fcbaa8ed4283511b69c0269f19287c5705ff",
     "source_remote": "https://github.com/sim-nest/sim-storage",
     "validation_commands": [
       "cargo fmt --all --check",
@@ -400,9 +445,9 @@
       "cargo run -p xtask -- validation-matrix --check --repo .",
       "cargo run -p xtask -- crate-catalog --check --repo ."
     ],
-    "workspace_hash": "f124eaba1ca0bcdf",
+    "workspace_hash": "0dceec32952e476d",
     "workspace_hash_algorithm": "fnv1a64",
-    "workspace_hash_input_count": 71,
+    "workspace_hash_input_count": 81,
     "workspace_hash_inputs": [
       "Cargo.toml",
       "crates/sim-list-cell/Cargo.toml",
@@ -467,6 +512,16 @@
       "crates/sim-table-lazy/src/lazy.rs",
       "crates/sim-table-lazy/src/lib.rs",
       "crates/sim-table-lazy/src/tests.rs",
+      "crates/sim-table-mount/Cargo.toml",
+      "crates/sim-table-mount/build.rs",
+      "crates/sim-table-mount/recipes/01-basics/backend-composition/recipe.toml",
+      "crates/sim-table-mount/recipes/book.toml",
+      "crates/sim-table-mount/src/capabilities.rs",
+      "crates/sim-table-mount/src/lib.rs",
+      "crates/sim-table-mount/src/mount_dir.rs",
+      "crates/sim-table-mount/src/ops.rs",
+      "crates/sim-table-mount/src/routing.rs",
+      "crates/sim-table-mount/src/tests.rs",
       "crates/sim-table-override/Cargo.toml",
       "crates/sim-table-override/src/class.rs",
       "crates/sim-table-override/src/install.rs",
@@ -477,7 +532,7 @@
       "xtask/Cargo.toml"
     ]
   },
-  "recipe_book_count": 2,
+  "recipe_book_count": 3,
   "recipes": [
     {
       "book": "storage/table-fs",
@@ -526,6 +581,26 @@
       ],
       "summary": "Direct HTTP resources addressed through the table directory surface.",
       "title": "HTTP Table"
+    },
+    {
+      "book": "storage/table-mount",
+      "book_toml": "crates/sim-table-mount/recipes/book.toml",
+      "card_id": "cookbook/storage/table-mount",
+      "group": "workspace",
+      "package": "sim-table-mount",
+      "recipe_count": 1,
+      "recipes": [
+        {
+          "card_id": "storage/table-mount/01-basics/backend-composition",
+          "codec": "lisp",
+          "id": "backend-composition",
+          "package": "sim-table-mount",
+          "recipe_toml": "crates/sim-table-mount/recipes/01-basics/backend-composition/recipe.toml",
+          "title": "Compose table backends"
+        }
+      ],
+      "summary": "Compose independently owned Table and Dir backends behind one directory view.",
+      "title": "Mounted Table Namespace"
     }
   ]
 }

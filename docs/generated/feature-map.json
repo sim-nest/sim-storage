@@ -102,6 +102,11 @@
     {
       "features": [],
       "group": "workspace",
+      "package": "sim-table-mount"
+    },
+    {
+      "features": [],
+      "group": "workspace",
       "package": "sim-table-override"
     },
     {

@@ -1,0 +1,5 @@
+book = "storage/table-mount"
+title = "Mounted Table Namespace"
+summary = "Compose independently owned Table and Dir backends behind one directory view."
+order = 125
+chapters = ["01-basics"]

@@ -51,6 +51,13 @@
       "summary": "Lazy table backend for the SIM constellation."
     },
     {
+      "crate_name": "sim_table_mount",
+      "group": "workspace",
+      "manifest": "crates/sim-table-mount/Cargo.toml",
+      "package": "sim-table-mount",
+      "summary": "Mounted Table/Dir namespace for SIM storage backends."
+    },
+    {
       "crate_name": "sim_table_override",
       "group": "workspace",
       "manifest": "crates/sim-table-override/Cargo.toml",
