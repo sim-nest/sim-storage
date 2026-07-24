@@ -12,7 +12,7 @@ homepage = "https://github.com/sim-nest/sim-storage"
 [dependencies]
 sim-cookbook = { version = "0.1.3" }
 sim-kernel = { version = "0.1.4" }
-sim-table-core = { version = "0.1.1", git = "https://github.com/sim-nest/sim-foundation", rev = "b42ec5bc1f268dce2a8ce72f51db551b3af1e493" }
+sim-table-core = { version = "0.1.2", git = "https://github.com/sim-nest/sim-foundation", rev = "3ac9fb759bf4b13ddee76145b7e5809f080e8efa" }
 
 [build-dependencies]
 sim-cookbook = { version = "0.1.3" }
