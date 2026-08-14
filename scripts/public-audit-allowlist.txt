@@ -1,0 +1,10 @@
+# Public-surface audit allowlist for sim-storage.
+#
+# Format:
+# kind|path-glob|line-regex|reason
+#
+# Keep entries exact: use the narrow file, the specific matched token, and the
+# reason the text is safe on the public surface.
+
+private-network|crates/sim-table-http/src/tests.rs|127\.0\.0\.1|sim-table-http tests bind ephemeral loopback sockets and use loopback-only fixture URLs; no private endpoint is present.
+local-path|commit:c8c2a086f9409c4243a05afd6cd6048ec1bad290|/home/bo/projects/sim-private/\.meta-workspace/Cargo\.toml|Immutable CORE1 validation metadata records the maintainer's local generated-workspace path; it is not package data.
