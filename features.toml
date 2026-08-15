@@ -25,17 +25,14 @@ claims_anchors = [
   "anchor/crate/sim-list-lazy",
   "anchor/crate/sim-table-hash",
   "anchor/crate/sim-table-lazy",
-  "anchor/crate/sim-table-mount",
   "anchor/crate/sim-table-override",
   "anchor/runtime-lib/sim-list-cell/cons-list-lib",
   "anchor/runtime-lib/sim-list-lazy/lazy-list-lib",
   "anchor/runtime-lib/sim-table-hash/hash-table-lib",
   "anchor/runtime-lib/sim-table-lazy/lazy-table-lib",
-  "anchor/runtime-lib/sim-table-mount/mount-dir-lib",
   "anchor/runtime-lib/sim-table-override/override-table-lib",
 ]
 claims_specimens = [
-  "spec-test/sim-storage/crates/sim-table-mount/src/tests",
   "spec-test/sim-storage/crates/sim-table-override/src/install",
 ]
 
