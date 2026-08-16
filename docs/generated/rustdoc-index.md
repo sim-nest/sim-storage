@@ -11,5 +11,6 @@
 | `sim-table-hash` | `workspace` | Hash-map table backend for the SIM constellation. |
 | `sim-table-http` | `workspace` | HTTP-backed table directory backend for SIM. |
 | `sim-table-lazy` | `workspace` | Lazy table backend for the SIM constellation. |
+| `sim-table-mount` | `workspace` | Mounted Table/Dir namespace for SIM storage backends. |
 | `sim-table-override` | `workspace` | Override (overlay) table backend for the SIM constellation. |
 | `xtask` | `workspace` | SIM workspace package for xtask. |
