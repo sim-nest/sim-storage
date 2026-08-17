@@ -11,5 +11,6 @@
 | `sim-table-hash` | `workspace` | 0 | 0 |
 | `sim-table-http` | `workspace` | 2 | 0 |
 | `sim-table-lazy` | `workspace` | 0 | 0 |
+| `sim-table-mount` | `workspace` | 0 | 0 |
 | `sim-table-override` | `workspace` | 0 | 0 |
 | `xtask` | `workspace` | 0 | 0 |

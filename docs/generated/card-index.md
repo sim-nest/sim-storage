@@ -7,4 +7,5 @@
 | `browse/catalog` | `browse-root` | `workspace` | root browse catalog |
 | `cookbook/storage/table-fs` | `cookbook-recipe` | `sim-table-fs` | Host directory reads, writes, edits, and searches through the table surface. |
 | `cookbook/storage/table-http` | `cookbook-recipe` | `sim-table-http` | Direct HTTP resources addressed through the table directory surface. |
+| `cookbook/storage/table-mount` | `cookbook-recipe` | `sim-table-mount` | Compose independently owned Table and Dir backends behind one directory view. |
 | `registry/catalog` | `browse-registry` | `workspace` | registry catalog browse card |
