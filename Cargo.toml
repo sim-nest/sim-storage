@@ -5,7 +5,7 @@ members = [
   "crates/sim-list-cell",
   "crates/sim-list-lazy",
   "crates/sim-table-db",
-  "crates/sim-table-fs",
+  "crates/sim-storage-port",
   "crates/sim-table-hash",
   "crates/sim-table-http",
   "crates/sim-table-lazy",

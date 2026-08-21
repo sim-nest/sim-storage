@@ -16,18 +16,18 @@
       "summary": "Lazy list backend for the SIM constellation."
     },
     {
+      "crate_name": "sim_storage_port",
+      "group": "workspace",
+      "manifest": "crates/sim-storage-port/Cargo.toml",
+      "package": "sim-storage-port",
+      "summary": "Portable contracts between SIM's Table/Dir policy and host storage."
+    },
+    {
       "crate_name": "sim_table_db",
       "group": "workspace",
       "manifest": "crates/sim-table-db/Cargo.toml",
       "package": "sim-table-db",
       "summary": "Db-backed table backend for the SIM constellation."
-    },
-    {
-      "crate_name": "sim_table_fs",
-      "group": "workspace",
-      "manifest": "crates/sim-table-fs/Cargo.toml",
-      "package": "sim-table-fs",
-      "summary": "Filesystem-backed table store for SIM."
     },
     {
       "crate_name": "sim_table_hash",

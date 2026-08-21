@@ -57,17 +57,14 @@ supports = [
 [[feature]]
 id = "feature/sim-storage/host-storage-primitives"
 title = "Host storage primitives"
-summary = "Connect file, database, and HTTP storage crates to the shared Table and Dir backend shape."
-owner = "crate/sim-table-fs"
+summary = "Define the portable HostDirPort boundary used by Table/Dir policy, alongside pure database and HTTP storage contracts."
+owner = "crate/sim-storage-port"
 audiences = ["code", "framework"]
-guidance = "Use this row when a host primitive reads or writes through a storage-backed table."
+guidance = "Extend HostDirPort when Table/Dir policy needs another observable operation; keep native paths, handles, filesystem semantics, and physical tests in a platform capsule."
 claims_anchors = [
   "anchor/crate/sim-table-db",
-  "anchor/crate/sim-table-fs",
+  "anchor/crate/sim-storage-port",
   "anchor/crate/sim-table-http",
-]
-claims_specimens = [
-  "spec-test/sim-storage/crates/sim-table-fs/src/tests/table",
 ]
 
 [[feature]]

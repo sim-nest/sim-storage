@@ -7,6 +7,9 @@ description = "SIM workspace package for xtask."
 readme = "README.md"
 publish = false
 
+[package.metadata.sim]
+role = "host-tool"
+
 [dependencies]
 
 [lints]

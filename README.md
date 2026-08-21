@@ -85,16 +85,16 @@ repository supplies the behavior, not the protocol.
 | `sim-table-override` | Overlay table backend: `OverrideTable` layers one or more tables over a base table, resolving lookups front-to-back so upper layers shadow lower ones; deletes and clears mask lower entries until a later write reintroduces the key. Installs via `install_override_table_lib`. |
 | `sim-table-mount` | Mounted directory backend: `MountedDir` composes a root directory with explicit Table or Dir mount points, routing by longest valid prefix while preserving each backend's own checks. Installs via `install_mount_dir_lib`. |
 | `sim-table-db` | In-memory directory-table backend: `DbDir` is a path-addressed tree of symbol-keyed values that satisfies the kernel table and directory contracts under capability control. It is not an external database engine. Installs via `install_db_dir_lib`. |
-| `sim-table-fs` | Filesystem directory backend: `FsDir` exposes a host directory as a path-addressed table with codec-by-extension leaves and capability-gated mutation. Installs via `install_fs_dir_lib`. |
+| `sim-storage-port` | Pure `HostDirPort` contract carrying validated relative names, bytes, portable metadata, cancellation, quota, and sanitized error categories across the platform boundary. |
 
 ## Backends as loadable libraries
 
 Every backend follows the same contract. It implements a kernel collection
 trait (`ListBackend` or `TableBackend`, plus the directory contract for
-`sim-table-db` and `sim-table-fs`), registers a citizen class so its values are
+`sim-table-db`), registers a citizen class so its values are
 first-class runtime objects, and exposes a single `install_*` function that adds
 the library to a runtime `Cx`. A program selects a storage strategy -- eager
-cell versus lazy, hashed versus overlay versus db versus filesystem -- by
+cell versus lazy, hashed versus overlay versus db -- by
 installing the matching library, while the kernel contract keeps the collection
 surface uniform across backends.
 
@@ -138,6 +138,6 @@ the crate to build.
 
 ### Examples and recipes
 
-`sim-table-fs` and `sim-table-http` ship `recipes/` trees with descriptor
-recipes for filesystem and HTTP-backed storage flows. The other storage crates
+`sim-table-http` ships a `recipes/` tree with descriptor recipes for HTTP-backed
+storage flows. The other storage crates
 use rustdoc examples as their executable examples.
