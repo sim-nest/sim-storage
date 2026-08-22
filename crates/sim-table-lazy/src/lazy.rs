@@ -100,10 +100,10 @@ impl LazyTable {
     ///
     /// ```
     /// use std::sync::Arc;
-    /// use sim_kernel::{Cx, DefaultFactory, NoopEvalPolicy, Result, Symbol, Table, Value};
+    /// use sim_kernel::{Cx, DefaultFactory, HandleSeed, NoopEvalPolicy, Result, Symbol, Table, Value};
     /// use sim_table_lazy::{LazyTable, ValueLoader};
     ///
-    /// let mut cx = Cx::new(Arc::new(NoopEvalPolicy), Arc::new(DefaultFactory));
+    /// let mut cx = Cx::new(Arc::new(NoopEvalPolicy), Arc::new(DefaultFactory), HandleSeed::new(1));
     /// let loader: ValueLoader = Arc::new(|cx: &mut Cx| cx.factory().bool(true));
     /// let table = LazyTable::with_loaders(vec![(Symbol::new("x"), loader)]);
     ///

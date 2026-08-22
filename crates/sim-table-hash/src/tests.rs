@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use sim_kernel::{
-    Cx, DefaultFactory, NoopEvalPolicy, ObjectEncoding, Symbol, Table, read_construct_capability,
+    Cx, DefaultFactory, Expr, HandleSeed, NoopEvalPolicy, ObjectEncoding, Symbol, Table,
+    TableExpected, TableReplacement, read_construct_capability,
 };
 
 use crate::{
@@ -10,7 +11,11 @@ use crate::{
 };
 
 fn test_cx() -> Cx {
-    Cx::new(Arc::new(NoopEvalPolicy), Arc::new(DefaultFactory))
+    Cx::new(
+        Arc::new(NoopEvalPolicy),
+        Arc::new(DefaultFactory),
+        HandleSeed::new(1),
+    )
 }
 
 #[test]
@@ -26,6 +31,50 @@ fn hash_table_lookup() {
     assert_eq!(table.len(&mut cx).unwrap(), 2);
     assert!(table.has(&mut cx, Symbol::new("a")).unwrap());
     assert_eq!(table.get(&mut cx, Symbol::new("a")).unwrap(), one);
+}
+
+#[test]
+fn hash_compare_exchange_rejects_stale_owner_and_preserves_nil_presence() {
+    let mut cx = test_cx();
+    let table = HashTable::new();
+    let key = Symbol::new("lease");
+    let owner = cx.factory().string("owner".to_owned()).unwrap();
+    assert!(
+        table
+            .compare_exchange(
+                &mut cx,
+                key.clone(),
+                TableExpected::Absent,
+                TableReplacement::Value(owner)
+            )
+            .unwrap()
+            .exchanged
+    );
+    assert!(
+        !table
+            .compare_exchange(
+                &mut cx,
+                key.clone(),
+                TableExpected::Value(Expr::String("stale".into())),
+                TableReplacement::Delete
+            )
+            .unwrap()
+            .exchanged
+    );
+    let nil = cx.factory().nil().unwrap();
+    table.set(&mut cx, key.clone(), nil).unwrap();
+    assert!(
+        table
+            .compare_exchange(
+                &mut cx,
+                key.clone(),
+                TableExpected::Value(Expr::Nil),
+                TableReplacement::Delete
+            )
+            .unwrap()
+            .exchanged
+    );
+    assert!(!table.has(&mut cx, key).unwrap());
 }
 
 #[test]

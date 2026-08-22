@@ -7,7 +7,8 @@ use std::{
 };
 
 use sim_kernel::{
-    Cx, Error, Expr, Object, ObjectEncode, ObjectEncoding, Result, Symbol, Table, Value,
+    Cx, Error, Expr, Object, ObjectEncode, ObjectEncoding, Result, Symbol, Table,
+    TableCompareExchange, TableExpected, TableObserved, TableReplacement, Value,
     id::CORE_TABLE_CLASS_ID, object::ClassRef,
 };
 
@@ -66,10 +67,10 @@ impl HashTable {
     ///
     /// ```
     /// use std::sync::Arc;
-    /// use sim_kernel::{Cx, DefaultFactory, NoopEvalPolicy, Symbol, Table};
+    /// use sim_kernel::{Cx, DefaultFactory, HandleSeed, NoopEvalPolicy, Symbol, Table};
     /// use sim_table_hash::HashTable;
     ///
-    /// let mut cx = Cx::new(Arc::new(NoopEvalPolicy), Arc::new(DefaultFactory));
+    /// let mut cx = Cx::new(Arc::new(NoopEvalPolicy), Arc::new(DefaultFactory), HandleSeed::new(1));
     /// let value = cx.factory().bool(true).unwrap();
     /// let table = HashTable::with_entries(vec![(Symbol::new("a"), value.clone())]);
     ///
@@ -220,5 +221,44 @@ impl Table for HashTable {
     fn clear(&self, _cx: &mut Cx) -> Result<()> {
         self.write()?.clear();
         Ok(())
+    }
+
+    fn compare_exchange(
+        &self,
+        cx: &mut Cx,
+        key: Symbol,
+        expected: TableExpected,
+        replacement: TableReplacement,
+    ) -> Result<TableCompareExchange> {
+        let replacement = match replacement {
+            TableReplacement::Delete => None,
+            TableReplacement::Value(v) => {
+                v.object().as_expr(cx)?;
+                Some(v)
+            }
+        };
+        let mut map = self.write()?;
+        let observed = match map.get(&key) {
+            Some(v) => TableObserved::Value(v.object().as_expr(cx)?),
+            None => TableObserved::Absent,
+        };
+        let exchanged = matches!(
+            (&expected, &observed),
+            (TableExpected::Absent, TableObserved::Absent)
+        ) || matches!((&expected, &observed), (TableExpected::Value(a), TableObserved::Value(b)) if a == b);
+        if exchanged {
+            match replacement {
+                Some(v) => {
+                    map.insert(key, v);
+                }
+                None => {
+                    map.remove(&key);
+                }
+            }
+        }
+        Ok(TableCompareExchange {
+            exchanged,
+            observed,
+        })
     }
 }

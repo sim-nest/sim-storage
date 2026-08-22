@@ -15,7 +15,11 @@ use crate::{
 };
 
 fn cx() -> sim_kernel::Cx {
-    let mut cx = sim_kernel::Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = sim_kernel::Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(1),
+    );
     sim_test_support::register_core_classes(&mut cx);
     grant(
         &mut cx,
@@ -262,7 +266,11 @@ fn mounted_namespace_observes_backend_state_and_capabilities() {
         Expr::String("after-mount".to_owned())
     );
 
-    let mut denied = sim_kernel::Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut denied = sim_kernel::Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(2),
+    );
     denied.grant(table_mount_capability());
     let denied_namespace = MountedDir::new(db_value(&mut denied)).unwrap();
     assert!(matches!(

@@ -16,10 +16,10 @@ frameworks = "advisory"
 [[feature]]
 id = "feature/sim-storage/table-dir-backends"
 title = "Table and Dir backends"
-summary = "Provide hash, lazy, override, mounted, and list-backed Table/Dir implementations for reusable storage libraries."
+summary = "Provide hash, database, mounted, and view Table/Dir implementations, with honest linearizable compare-exchange where the backend can establish one atomic boundary."
 owner = "crate/sim-table-hash"
 audiences = ["code", "framework"]
-guidance = "Use this row when selecting or adding a storage backend for Table and Dir contracts."
+guidance = "Use compare-exchange on hash, database, or a mounted supporting backend for leases and claims; absent, stored nil, delete, and value are distinct. Lazy, override, HTTP, and other views return Unsupported unless they can prove one linearization point."
 claims_anchors = [
   "anchor/crate/sim-list-cell",
   "anchor/crate/sim-list-lazy",
@@ -57,10 +57,10 @@ supports = [
 [[feature]]
 id = "feature/sim-storage/host-storage-primitives"
 title = "Host storage primitives"
-summary = "Define the portable HostDirPort boundary used by Table/Dir policy, alongside pure database and HTTP storage contracts."
+summary = "Define the portable HostDirPort boundary used by Table/Dir policy, including byte-level compare-exchange at the platform-owned atomic publication boundary."
 owner = "crate/sim-storage-port"
 audiences = ["code", "framework"]
-guidance = "Extend HostDirPort when Table/Dir policy needs another observable operation; keep native paths, handles, filesystem semantics, and physical tests in a platform capsule."
+guidance = "Use HostDirPort compare-exchange for atomic leaf publication; keep locks, native paths, handles, filesystem semantics, and physical crash tests in a platform capsule."
 claims_anchors = [
   "anchor/crate/sim-table-db",
   "anchor/crate/sim-storage-port",

@@ -4,8 +4,8 @@ use std::sync::{
 };
 
 use sim_kernel::{
-    Cx, DefaultFactory, Expr, NoopEvalPolicy, ObjectCompat, ObjectEncode, ObjectEncoding, Symbol,
-    Table, read_construct_capability,
+    Cx, DefaultFactory, Expr, HandleSeed, NoopEvalPolicy, ObjectCompat, ObjectEncode,
+    ObjectEncoding, Symbol, Table, TableExpected, TableReplacement, read_construct_capability,
 };
 
 use crate::{
@@ -14,7 +14,11 @@ use crate::{
 };
 
 fn test_cx() -> Cx {
-    Cx::new(Arc::new(NoopEvalPolicy), Arc::new(DefaultFactory))
+    Cx::new(
+        Arc::new(NoopEvalPolicy),
+        Arc::new(DefaultFactory),
+        HandleSeed::new(1),
+    )
 }
 
 #[test]
@@ -33,6 +37,30 @@ fn lazy_value_is_forced_once() {
 
     assert_eq!(calls.load(Ordering::SeqCst), 1);
     assert_eq!(first, second);
+}
+
+#[test]
+fn lazy_compare_exchange_is_honestly_unsupported_and_does_not_force() {
+    let mut cx = test_cx();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counter = calls.clone();
+    let loader: ValueLoader = Arc::new(move |cx: &mut Cx| {
+        counter.fetch_add(1, Ordering::SeqCst);
+        cx.factory().bool(true)
+    });
+    let table = LazyTable::with_loaders(vec![(Symbol::new("x"), loader)]);
+    let replacement = cx.factory().nil().unwrap();
+    let error = table
+        .compare_exchange(
+            &mut cx,
+            Symbol::new("x"),
+            TableExpected::Absent,
+            TableReplacement::Value(replacement),
+        )
+        .unwrap_err();
+    assert!(error.to_string().contains("unsupported"));
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    assert!(table.has(&mut cx, Symbol::new("x")).unwrap());
 }
 
 #[test]

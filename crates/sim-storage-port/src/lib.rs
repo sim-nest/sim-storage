@@ -31,6 +31,8 @@ pub enum HostDirErrorKind {
     NotEmpty,
     /// Another native I/O failure occurred.
     Native,
+    /// The adapter cannot provide the requested atomic contract.
+    Unsupported,
 }
 
 /// A sanitized host-storage failure with no native handle or path exposure.
@@ -96,6 +98,15 @@ impl Cancellation for NeverCancel {
     }
 }
 
+/// Outcome of a host-byte compare-exchange.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HostCompareExchange {
+    /// Whether the replacement was published.
+    pub exchanged: bool,
+    /// Bytes observed at the linearization point, or `None` when absent.
+    pub observed: Option<Vec<u8>>,
+}
+
 /// Smallest observable host-directory surface needed by Table/Dir policy.
 pub trait HostDirPort: Send + Sync {
     /// Human-readable non-native mount identity.
@@ -108,6 +119,19 @@ pub trait HostDirPort: Send + Sync {
     fn read(&self, path: &[String]) -> PortResult<Vec<u8>>;
     /// Atomically replaces one regular file and durably commits its parent.
     fn replace(&self, path: &[String], bytes: &[u8], cancel: &dyn Cancellation) -> PortResult<()>;
+    /// Atomically replaces or deletes a leaf iff its bytes equal `expected`.
+    fn compare_exchange(
+        &self,
+        _path: &[String],
+        _expected: Option<&[u8]>,
+        _replacement: Option<&[u8]>,
+        _cancel: &dyn Cancellation,
+    ) -> PortResult<HostCompareExchange> {
+        Err(HostDirError::new(
+            HostDirErrorKind::Unsupported,
+            "host directory compare-exchange unsupported",
+        ))
+    }
     /// Removes one regular file.
     fn remove_file(&self, path: &[String]) -> PortResult<()>;
     /// Creates one directory; existing directories are accepted.
