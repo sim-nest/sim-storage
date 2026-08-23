@@ -16,6 +16,13 @@
       "summary": "Lazy list backend for the SIM constellation."
     },
     {
+      "crate_name": "sim_relation_site",
+      "group": "workspace",
+      "manifest": "crates/sim-relation-site/Cargo.toml",
+      "package": "sim-relation-site",
+      "summary": "Bounded, provider-neutral relation effects."
+    },
+    {
       "crate_name": "sim_storage_port",
       "group": "workspace",
       "manifest": "crates/sim-storage-port/Cargo.toml",

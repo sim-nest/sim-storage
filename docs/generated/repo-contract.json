@@ -37,6 +37,7 @@
     "workspace": [
       "sim-list-cell",
       "sim-list-lazy",
+      "sim-relation-site",
       "sim-storage-port",
       "sim-table-db",
       "sim-table-hash",
@@ -49,7 +50,7 @@
   },
   "non_citizen_exemption_count": 0,
   "non_citizen_exemptions": [],
-  "package_count": 10,
+  "package_count": 11,
   "packages": [
     {
       "crate_name": "sim_list_cell",
@@ -102,6 +103,33 @@
           ],
           "name": "sim_list_lazy",
           "src": "crates/sim-list-lazy/src/lib.rs"
+        }
+      ]
+    },
+    {
+      "crate_name": "sim_relation_site",
+      "dependencies": [],
+      "description": "Bounded provider-neutral relation effect site for SIM.",
+      "features": [],
+      "group": "workspace",
+      "manifest": "crates/sim-relation-site/Cargo.toml",
+      "name": "sim-relation-site",
+      "publish": "true",
+      "root": "crates/sim-relation-site",
+      "rustdoc_summary": "Bounded, provider-neutral relation effects.",
+      "target_kinds": [
+        "lib"
+      ],
+      "targets": [
+        {
+          "crate_types": [
+            "lib"
+          ],
+          "kind": [
+            "lib"
+          ],
+          "name": "sim_relation_site",
+          "src": "crates/sim-relation-site/src/lib.rs"
         }
       ]
     },
@@ -362,10 +390,10 @@
     "generated_by": "cargo run -p xtask -- simdoc",
     "generation_timestamp": "2026-07-16T00:13:38+02:00",
     "generator": "xtask repo-contract v1",
-    "git_commit": "3fabff704d255f8f634a0cd12eef5d9bd1ae9493",
+    "git_commit": "fc453d7e1358f72b333f22515d866b722283a4df",
     "repo": "sim-storage",
     "schema": "sim.provenance.v1",
-    "source_commit": "3fabff704d255f8f634a0cd12eef5d9bd1ae9493",
+    "source_commit": "fc453d7e1358f72b333f22515d866b722283a4df",
     "source_remote": "https://github.com/sim-nest/sim-storage",
     "validation_commands": [
       "cargo fmt --all --check",
@@ -378,9 +406,9 @@
       "cargo run -p xtask -- validation-matrix --check --repo .",
       "cargo run -p xtask -- crate-catalog --check --repo ."
     ],
-    "workspace_hash": "6f6bac7d24fbe6de",
+    "workspace_hash": "15e3a1f35cdda490",
     "workspace_hash_algorithm": "fnv1a64",
-    "workspace_hash_input_count": 63,
+    "workspace_hash_input_count": 68,
     "workspace_hash_inputs": [
       "Cargo.toml",
       "crates/sim-list-cell/Cargo.toml",
@@ -396,6 +424,11 @@
       "crates/sim-list-lazy/src/lazy.rs",
       "crates/sim-list-lazy/src/lib.rs",
       "crates/sim-list-lazy/src/tests.rs",
+      "crates/sim-relation-site/Cargo.toml",
+      "crates/sim-relation-site/src/contract.rs",
+      "crates/sim-relation-site/src/lib.rs",
+      "crates/sim-relation-site/src/site.rs",
+      "crates/sim-relation-site/src/tests.rs",
       "crates/sim-storage-port/Cargo.toml",
       "crates/sim-storage-port/src/lib.rs",
       "crates/sim-table-db/Cargo.toml",

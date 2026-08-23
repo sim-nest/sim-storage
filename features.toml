@@ -68,6 +68,20 @@ claims_anchors = [
 ]
 
 [[feature]]
+id = "feature/sim-storage/bounded-relation-site"
+title = "Bounded logical relation site"
+summary = "Realize sealed checked relational plans through a provider-neutral, capability-gated, bounded host effect seam."
+owner = "crate/sim-relation-site"
+audiences = ["code", "framework"]
+guidance = "Compose this site with relation plan and migration admission. Providers validate opaque locators internally and receive no text execution surface; callers receive typed pushed rows and redacted receipts."
+claims_anchors = [
+  "anchor/crate/sim-relation-site",
+]
+claims_specimens = [
+  "spec-test/sim-storage/crates/sim-relation-site/src/tests",
+]
+
+[[feature]]
 id = "feature/sim-storage/contract-emitter"
 title = "Storage contract emitter"
 summary = "Emit generated repository contract and index fragments for storage crates."
@@ -79,6 +93,15 @@ claims_anchors = [
 ]
 supports = [
   "feature/sim-storage/table-dir-backends",
+]
+
+[[route]]
+id = "route/add-relation-provider"
+task = "Add a logical relation provider"
+audiences = ["code", "framework"]
+steps = [
+  { feature = "feature/sim-storage/bounded-relation-site", why = "The site owns placement, checked provider traits, bounds, capabilities, effects, transactions, and receipts." },
+  { specimen = "spec-test/sim-storage/crates/sim-relation-site/src/tests", why = "The recording provider proves the effect seam without implementing SQL or relational evaluation." },
 ]
 
 [[route]]

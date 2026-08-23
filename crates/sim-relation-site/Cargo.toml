@@ -1,0 +1,27 @@
+[package]
+name = "sim-relation-site"
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+description = "Bounded provider-neutral relation effect site for SIM."
+readme = "README.md"
+publish = true
+repository = "https://github.com/sim-nest/sim-storage"
+homepage = "https://github.com/sim-nest/sim-storage"
+
+[package.metadata.sim-recipes]
+policy = "rustdoc"
+reason = "The bounded site specimen is checked in crate tests and rustdoc."
+
+[dependencies]
+sim-kernel = { version = "0.2.1" }
+sim-relation-core = { version = "0.1.0", path = "../../../sim-foundation/crates/sim-relation-core" }
+sim-relation-migrate = { version = "0.1.0", path = "../../../sim-foundation/crates/sim-relation-migrate" }
+sim-relation-plan = { version = "0.1.0", path = "../../../sim-foundation/crates/sim-relation-plan" }
+
+[dev-dependencies]
+sim-kernel = { version = "0.2.1", features = ["test-support"] }
+sim-relation-schema = { version = "0.1.0", path = "../../../sim-foundation/crates/sim-relation-schema" }
+
+[lints]
+workspace = true

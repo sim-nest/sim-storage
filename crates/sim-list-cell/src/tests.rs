@@ -8,8 +8,8 @@ use std::{
 };
 
 use sim_kernel::{
-    Cx, DefaultFactory, EagerPolicy, Expr, Factory, LengthResult, ListBackend, ListValue,
-    NumberLiteral, Object, ObjectCompat, ObjectEncoding, Result, Symbol, Value,
+    Cx, DefaultFactory, EagerPolicy, Expr, Factory, HandleSeed, LengthResult, ListBackend,
+    ListValue, NumberLiteral, Object, ObjectCompat, ObjectEncoding, Result, Symbol, Value,
     read_construct_capability,
 };
 
@@ -18,7 +18,11 @@ use crate::{
 };
 
 fn eval_cx() -> Cx {
-    Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory))
+    Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        HandleSeed::new(1),
+    )
 }
 
 /// A test-only unbounded list that records how many heads have been forced, so

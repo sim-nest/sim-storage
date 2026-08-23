@@ -1,14 +1,18 @@
 use std::sync::Arc;
 
 use sim_kernel::{
-    Args, CapabilitySet, Cx, DefaultFactory, Expr, NoopEvalPolicy, ObjectEncoding, ReadPolicy,
-    Symbol, TrustLevel, Value, read_construct_capability,
+    Args, CapabilitySet, Cx, DefaultFactory, Expr, HandleSeed, NoopEvalPolicy, ObjectEncoding,
+    ReadPolicy, Symbol, TrustLevel, Value, read_construct_capability,
 };
 
 use crate::{OverrideTable, construct_override_table, install_override_table_lib};
 
 fn test_cx() -> Cx {
-    Cx::new(Arc::new(NoopEvalPolicy), Arc::new(DefaultFactory))
+    Cx::new(
+        Arc::new(NoopEvalPolicy),
+        Arc::new(DefaultFactory),
+        HandleSeed::new(1),
+    )
 }
 
 fn table(cx: &mut Cx, entries: &[(&str, Value)]) -> Value {
