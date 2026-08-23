@@ -35,8 +35,7 @@
         },
         {
           "edges": [
-            "dep:rustls",
-            "dep:rustls-native-certs"
+            "sim-lib-net-http/tls"
           ],
           "name": "tls",
           "workspace_edges": []

@@ -1,3 +1,3 @@
 # Diagram Sources
 
-Place editable diagram sources for `sim-storage` here.
+Place editable diagram sources for `REPO_NAME` here.

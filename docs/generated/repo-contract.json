@@ -198,8 +198,7 @@
         },
         {
           "edges": [
-            "dep:rustls",
-            "dep:rustls-native-certs"
+            "sim-lib-net-http/tls"
           ],
           "name": "tls",
           "workspace_edges": []
@@ -363,10 +362,10 @@
     "generated_by": "cargo run -p xtask -- simdoc",
     "generation_timestamp": "2026-07-16T00:13:38+02:00",
     "generator": "xtask repo-contract v1",
-    "git_commit": "fdb87ab5fbed0285c20048b81dfab13f5e801b45",
+    "git_commit": "3fabff704d255f8f634a0cd12eef5d9bd1ae9493",
     "repo": "sim-storage",
     "schema": "sim.provenance.v1",
-    "source_commit": "fdb87ab5fbed0285c20048b81dfab13f5e801b45",
+    "source_commit": "3fabff704d255f8f634a0cd12eef5d9bd1ae9493",
     "source_remote": "https://github.com/sim-nest/sim-storage",
     "validation_commands": [
       "cargo fmt --all --check",
@@ -379,7 +378,7 @@
       "cargo run -p xtask -- validation-matrix --check --repo .",
       "cargo run -p xtask -- crate-catalog --check --repo ."
     ],
-    "workspace_hash": "b3529d6eb1e969f7",
+    "workspace_hash": "6f6bac7d24fbe6de",
     "workspace_hash_algorithm": "fnv1a64",
     "workspace_hash_input_count": 63,
     "workspace_hash_inputs": [

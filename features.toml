@@ -60,7 +60,7 @@ title = "Host storage primitives"
 summary = "Define the portable HostDirPort boundary used by Table/Dir policy, including byte-level compare-exchange at the platform-owned atomic publication boundary."
 owner = "crate/sim-storage-port"
 audiences = ["code", "framework"]
-guidance = "Use HostDirPort compare-exchange for atomic leaf publication; keep locks, native paths, handles, filesystem semantics, and physical crash tests in a platform capsule."
+guidance = "Use HostDirPort compare-exchange for atomic leaf publication; keep locks, native paths, handles, filesystem semantics, and physical crash tests in a platform capsule. sim-table-http retains its Table/Dir API but delegates generic blocking HTTP framing, caps, deadlines, TLS policy, and sensitive headers to feature/sim-foundation/blocking-http-client."
 claims_anchors = [
   "anchor/crate/sim-table-db",
   "anchor/crate/sim-storage-port",
