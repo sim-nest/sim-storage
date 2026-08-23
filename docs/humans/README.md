@@ -17,6 +17,7 @@ This generated lane consumes `docs/generated/sim-index-fragment.sx`. Global inde
 
 | Feature | Subject | Specimens | Summary |
 | --- | --- | ---: | --- |
+| `feature/sim-storage/atomic-content-journal` | `crate/sim-lib-journal` | 0 | Publish immutable content and atomically advance one gapless, fenced journal head with verified replay and disposable read-only projections. |
 | `feature/sim-storage/table-dir-backends` | `crate/sim-table-hash` | 1 | Provide hash, database, mounted, and view Table/Dir implementations, with honest linearizable compare-exchange where the backend can establish one atomic boundary. |
 | `feature/sim-storage/mounted-table-dir-namespace` | `crate/sim-table-mount` | 1 | Compose multiple Table and Dir backends behind one mounted table dir namespace with explicit mount points. |
 | `feature/sim-storage/host-storage-primitives` | `crate/sim-storage-port` | 0 | Define the portable HostDirPort boundary used by Table/Dir policy, including byte-level compare-exchange at the platform-owned atomic publication boundary. |

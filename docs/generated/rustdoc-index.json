@@ -2,6 +2,13 @@
   "generator": "xtask repo-contract v1",
   "packages": [
     {
+      "crate_name": "sim_lib_journal",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-journal/Cargo.toml",
+      "package": "sim-lib-journal",
+      "summary": "Domain-free atomic journal behavior over content-addressed objects."
+    },
+    {
       "crate_name": "sim_list_cell",
       "group": "workspace",
       "manifest": "crates/sim-list-cell/Cargo.toml",

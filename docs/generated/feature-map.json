@@ -4,6 +4,11 @@
     {
       "features": [],
       "group": "workspace",
+      "package": "sim-lib-journal"
+    },
+    {
+      "features": [],
+      "group": "workspace",
       "package": "sim-list-cell"
     },
     {

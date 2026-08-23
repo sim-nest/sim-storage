@@ -14,6 +14,17 @@ major_entrypoints = "advisory"
 frameworks = "advisory"
 
 [[feature]]
+id = "feature/sim-storage/atomic-content-journal"
+title = "Atomic content journal"
+summary = "Publish immutable content and atomically advance one gapless, fenced journal head with verified replay and disposable read-only projections."
+owner = "crate/sim-lib-journal"
+audiences = ["code", "framework"]
+guidance = "Compose this domain-free journal for durable facts. Use open Symbol kinds and opaque ContentId payloads; implement production admission with canonical Table CAS and durability evidence rather than adding a lock or domain log."
+claims_anchors = [
+  "anchor/crate/sim-lib-journal",
+]
+
+[[feature]]
 id = "feature/sim-storage/table-dir-backends"
 title = "Table and Dir backends"
 summary = "Provide hash, database, mounted, and view Table/Dir implementations, with honest linearizable compare-exchange where the backend can establish one atomic boundary."

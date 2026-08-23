@@ -2,6 +2,7 @@
 [workspace]
 resolver = "3"
 members = [
+  "crates/sim-lib-journal",
   "crates/sim-list-cell",
   "crates/sim-list-lazy",
   "crates/sim-relation-site",

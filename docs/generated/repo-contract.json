@@ -35,6 +35,7 @@
   ],
   "groups": {
     "workspace": [
+      "sim-lib-journal",
       "sim-list-cell",
       "sim-list-lazy",
       "sim-relation-site",
@@ -50,8 +51,35 @@
   },
   "non_citizen_exemption_count": 0,
   "non_citizen_exemptions": [],
-  "package_count": 11,
+  "package_count": 12,
   "packages": [
+    {
+      "crate_name": "sim_lib_journal",
+      "dependencies": [],
+      "description": "Domain-free atomic content journal contract for SIM.",
+      "features": [],
+      "group": "workspace",
+      "manifest": "crates/sim-lib-journal/Cargo.toml",
+      "name": "sim-lib-journal",
+      "publish": "true",
+      "root": "crates/sim-lib-journal",
+      "rustdoc_summary": "Domain-free atomic journal behavior over content-addressed objects.",
+      "target_kinds": [
+        "lib"
+      ],
+      "targets": [
+        {
+          "crate_types": [
+            "lib"
+          ],
+          "kind": [
+            "lib"
+          ],
+          "name": "sim_lib_journal",
+          "src": "crates/sim-lib-journal/src/lib.rs"
+        }
+      ]
+    },
     {
       "crate_name": "sim_list_cell",
       "dependencies": [],
@@ -390,10 +418,10 @@
     "generated_by": "cargo run -p xtask -- simdoc",
     "generation_timestamp": "2026-07-16T00:13:38+02:00",
     "generator": "xtask repo-contract v1",
-    "git_commit": "36aface5eb4fc3c7261fec5475f5538b450c3d79",
+    "git_commit": "8a6a5cb2c872d61232ad786179ee98e3b7799b2f",
     "repo": "sim-storage",
     "schema": "sim.provenance.v1",
-    "source_commit": "36aface5eb4fc3c7261fec5475f5538b450c3d79",
+    "source_commit": "8a6a5cb2c872d61232ad786179ee98e3b7799b2f",
     "source_remote": "https://github.com/sim-nest/sim-storage",
     "validation_commands": [
       "cargo fmt --all --check",
@@ -406,11 +434,23 @@
       "cargo run -p xtask -- validation-matrix --check --repo .",
       "cargo run -p xtask -- crate-catalog --check --repo ."
     ],
-    "workspace_hash": "e886cee989e962a9",
+    "workspace_hash": "a62a60bdd7f2dec8",
     "workspace_hash_algorithm": "fnv1a64",
-    "workspace_hash_input_count": 68,
+    "workspace_hash_input_count": 80,
     "workspace_hash_inputs": [
       "Cargo.toml",
+      "crates/sim-lib-journal/Cargo.toml",
+      "crates/sim-lib-journal/src/backend.rs",
+      "crates/sim-lib-journal/src/entry.rs",
+      "crates/sim-lib-journal/src/head.rs",
+      "crates/sim-lib-journal/src/lease.rs",
+      "crates/sim-lib-journal/src/lib.rs",
+      "crates/sim-lib-journal/src/memory.rs",
+      "crates/sim-lib-journal/src/object.rs",
+      "crates/sim-lib-journal/src/projection.rs",
+      "crates/sim-lib-journal/src/replay.rs",
+      "crates/sim-lib-journal/src/tests.rs",
+      "crates/sim-lib-journal/src/verify.rs",
       "crates/sim-list-cell/Cargo.toml",
       "crates/sim-list-cell/src/backend.rs",
       "crates/sim-list-cell/src/citizen.rs",
