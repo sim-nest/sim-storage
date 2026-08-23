@@ -492,9 +492,7 @@ Source `crates/sim-relation-site/src/tests.rs`:
 //! Relation-site conformance: the recording driver proves the bounded host seam.
 
 use super::*;
-use sim_kernel::{
-    CapabilityName, Datum, DatumStore, DefaultFactory, HandleSeed, NoopEvalPolicy, Ref,
-};
+use sim_kernel::{CapabilityName, Datum, DatumStore, Ref, testing::bare_cx as cx};
 use sim_relation_core::{Cell, DomainId, FieldName, FieldType, Row, RowType};
 use sim_relation_migrate::CheckedProgram;
 use sim_relation_plan::{CheckedMutation, CheckedQuery};
@@ -638,13 +636,6 @@ impl Transaction for RecordingTx {
             }
         }
     }
-}
-fn cx() -> Cx {
-    Cx::new(
-        Arc::new(NoopEvalPolicy),
-        Arc::new(DefaultFactory),
-        HandleSeed::new(1),
-    )
 }
 fn limits() -> Limits {
     Limits::new(2, 2, 1000, 2).unwrap()
