@@ -8,3 +8,8 @@
 {"kind":"recipe","path":"crates/sim-table-mount/recipes/01-basics/backend-composition/setup.siml"}
 {"kind":"recipe","path":"crates/sim-table-mount/recipes/01-basics/chapter.toml"}
 {"kind":"recipe","path":"crates/sim-table-mount/recipes/book.toml"}
+{"kind":"recipe","path":"crates/sim-table-relation/recipes/01-basics/chapter.toml"}
+{"kind":"recipe","path":"crates/sim-table-relation/recipes/01-basics/relational-mount/purpose.md"}
+{"kind":"recipe","path":"crates/sim-table-relation/recipes/01-basics/relational-mount/recipe.toml"}
+{"kind":"recipe","path":"crates/sim-table-relation/recipes/01-basics/relational-mount/setup.siml"}
+{"kind":"recipe","path":"crates/sim-table-relation/recipes/book.toml"}

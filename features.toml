@@ -55,17 +55,13 @@ guidance = "Compose RelationDir with sim-table-core paths and MountedDir; retain
 claims_anchors = ["anchor/crate/sim-table-relation"]
 claims_specimens = [
   "spec-test/sim-storage/crates/sim-table-relation/src/tests",
-  "recipe/sim-storage/crates/sim-table-relation/01-basics/relational-mount",
+  "spec-test/sim-storage/crates/sim-table-override/src/install",
 ]
 supports = [
   "feature/sim-storage/table-dir-backends",
   "feature/sim-storage/mounted-table-dir-namespace",
   "feature/sim-foundation/table-dir-core",
 ]
-claims_specimens = [
-  "spec-test/sim-storage/crates/sim-table-override/src/install",
-]
-
 [[feature]]
 id = "feature/sim-storage/mounted-table-dir-namespace"
 title = "Mounted Table/Dir namespace"
@@ -136,6 +132,36 @@ supports = [
   "feature/sim-storage/table-dir-backends",
 ]
 
+[[feature]]
+id = "feature/sim-storage/relation-command"
+title = "Checked relation command library"
+summary = "Discover and operate loaded relational sites through named schemas, migrations, checked plans, explicit product authorization, and bounded Table/Dir output without a raw SQL escape hatch."
+owner = "crate/sim-lib-relation-cli"
+audiences = ["user", "code", "framework"]
+guidance = "Load this library through sim relation. Compose provider sessions behind RelationCommands; keep native paths, SQL text, and provider mechanics inside platform capsules. Mutation, adoption, and apply operations must bind --authorize to the exact --expect-plan identity rendered before action."
+claims_anchors = [
+  "anchor/crate/sim-lib-relation-cli",
+  "anchor/export/sim-lib-relation-cli/cli/main/relation",
+]
+claims_specimens = [
+  "spec-test/sim-storage/crates/sim-lib-relation-cli/src/tests",
+]
+supports = [
+  "feature/sim-foundation/relation-core",
+  "feature/sim-foundation/relation-schema",
+  "feature/sim-foundation/relation-plan",
+  "feature/sim-foundation/relation-migrate",
+  "feature/sim-shape/relation-shape",
+  "feature/sim-codecs/sql-projection",
+  "feature/sim-storage/bounded-relation-site",
+  "feature/sim-storage/sqlite-relation-locator",
+  "feature/sim-storage/relation-table-dir-projection",
+  "feature/sim-storage/mounted-table-dir-namespace",
+  "feature/sim-office/office-site-workflows",
+  "feature/sim-ledger/ledger-libraries",
+  "feature/sim-sdk/relation-composition",
+]
+
 [[route]]
 id = "route/add-relation-provider"
 task = "Add a logical relation provider"
@@ -143,6 +169,25 @@ audiences = ["code", "framework"]
 steps = [
   { feature = "feature/sim-storage/bounded-relation-site", why = "The site owns placement, checked provider traits, bounds, capabilities, effects, transactions, and receipts." },
   { specimen = "spec-test/sim-storage/crates/sim-relation-site/src/tests", why = "The recording provider proves the effect seam without implementing SQL or relational evaluation." },
+]
+
+[[route]]
+id = "route/operate-relational-data"
+task = "Discover inspect migrate query mutate or mount a database relation schema SQLite site or SQL projection"
+audiences = ["user", "code", "framework"]
+steps = [
+  { feature = "feature/sim-foundation/relation-core", why = "The provider-neutral logical relation framework owns rows, domains, and identities." },
+  { feature = "feature/sim-shape/relation-shape", why = "Shape admits relation values and command artifacts." },
+  { feature = "feature/sim-codecs/sql-projection", why = "The SQL codec is a projection of checked plans, never a command escape hatch." },
+  { feature = "feature/sim-foundation/relation-migrate", why = "Migration admission and drift checks precede physical action." },
+  { feature = "feature/sim-storage/bounded-relation-site", why = "The site contract gates provider effects and bounds." },
+  { feature = "feature/sim-storage/sqlite-relation-locator", why = "SQLite is selected through a closed provider identity and opaque locator." },
+  { feature = "feature/sim-storage/relation-table-dir-projection", why = "Results render through standard Table/Dir composition." },
+  { feature = "feature/sim-office/office-site-workflows", why = "Office workflows reuse relational sites rather than copying storage behavior." },
+  { feature = "feature/sim-ledger/ledger-libraries", why = "Ledger composition supplies durable domain reuse." },
+  { feature = "feature/sim-sdk/relation-composition", why = "The SDK facade exposes the supported relation composition." },
+  { feature = "feature/sim-storage/relation-command", why = "The loadable command parses only named, authorized, bounded operations." },
+  { specimen = "spec-test/sim-storage/crates/sim-lib-relation-cli/src/tests", why = "Checked specimens cover creation, inspection, adoption, drift refusal, query, mutation, providers, and mounts." },
 ]
 
 [[route]]

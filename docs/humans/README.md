@@ -18,16 +18,20 @@ This generated lane consumes `docs/generated/sim-index-fragment.sx`. Global inde
 | Feature | Subject | Specimens | Summary |
 | --- | --- | ---: | --- |
 | `feature/sim-storage/atomic-content-journal` | `crate/sim-lib-journal` | 0 | Crash-durably publish immutable content and atomically advance one gapless, fenced journal head with bounded verified reopen and disposable read-only projections. |
-| `feature/sim-storage/table-dir-backends` | `crate/sim-table-hash` | 1 | Provide hash, database, mounted, and view Table/Dir implementations, with honest linearizable compare-exchange where the backend can establish one atomic boundary. |
+| `feature/sim-storage/table-dir-backends` | `crate/sim-table-hash` | 0 | Provide hash, database, mounted, and view Table/Dir implementations, with honest linearizable compare-exchange where the backend can establish one atomic boundary. |
+| `feature/sim-storage/relation-table-dir-projection` | `crate/sim-table-relation` | 2 | Project a D9 node relation as a transactional Table/Dir namespace and admitted uniquely keyed query results as deterministic read-only tables. |
 | `feature/sim-storage/mounted-table-dir-namespace` | `crate/sim-table-mount` | 1 | Compose multiple Table and Dir backends behind one mounted table dir namespace with explicit mount points. |
 | `feature/sim-storage/host-storage-primitives` | `crate/sim-storage-port` | 0 | Define the portable HostDirPort boundary used by Table/Dir policy, including byte-level compare-exchange at the platform-owned atomic publication boundary. |
 | `feature/sim-storage/bounded-relation-site` | `crate/sim-relation-site` | 1 | Realize sealed checked relational plans through a provider-neutral, capability-gated, bounded host effect seam. |
+| `feature/sim-storage/sqlite-relation-locator` | `crate/sim-relation-site` | 1 | Admit only memory or capability-bearing preopened storage references and one canonical SQLite provider registration without exposing native paths or SQL. |
 | `feature/sim-storage/contract-emitter` | `crate/xtask` | 0 | Emit generated repository contract and index fragments for storage crates. |
+| `feature/sim-storage/relation-command` | `crate/sim-lib-relation-cli` | 1 | Discover and operate loaded relational sites through named schemas, migrations, checked plans, explicit product authorization, and bounded Table/Dir output without a raw SQL escape hatch. |
 
 ## Surfaces
 
 | Surface | Kind | Subject |
 | --- | --- | --- |
+| `cli/relation` | `cli` | `crate/sim-lib-relation-cli` |
 | `cli/xtask` | `cli` | `crate/xtask` |
 | `docs/sim-storage/generated` | `docs` | `doc-set/sim-storage/generated` |
 | `site/sim-relation-site` | `site` | `crate/sim-relation-site` |
@@ -44,10 +48,119 @@ This generated lane consumes `docs/generated/sim-index-fragment.sx`. Global inde
 - `crates/sim-table-mount/recipes/01-basics/backend-composition/setup.siml`
 - `crates/sim-table-mount/recipes/01-basics/chapter.toml`
 - `crates/sim-table-mount/recipes/book.toml`
+- `crates/sim-table-relation/recipes/01-basics/chapter.toml`
+- `crates/sim-table-relation/recipes/01-basics/relational-mount/purpose.md`
+- `crates/sim-table-relation/recipes/01-basics/relational-mount/recipe.toml`
+- `crates/sim-table-relation/recipes/01-basics/relational-mount/setup.siml`
+- `crates/sim-table-relation/recipes/book.toml`
 
 ## Worked Examples
 
-### `feature/sim-storage/table-dir-backends`
+### `feature/sim-storage/relation-table-dir-projection`
+
+Specimen `spec-test/sim-storage/crates/sim-table-relation/src/tests` is checked by `cargo test`.
+
+Source `crates/sim-table-relation/src/tests.rs`:
+
+```rust
+use super::*;
+use sim_kernel::{Cx, Dir, Error, Expr, Result, Symbol, Table, Value};
+use std::sync::Arc;
+
+struct TextCodec(Symbol);
+impl RelationValueCodec for TextCodec {
+    fn identity(&self) -> Symbol {
+        self.0.clone()
+    }
+    fn encode(&self, cx: &mut Cx, value: &Value) -> Result<Vec<u8>> {
+        match value.object().as_expr(cx)? {
+            Expr::String(v) => Ok(v.into_bytes()),
+            _ => Err(Error::Eval("test codec expects string".into())),
+        }
+    }
+    fn decode(&self, cx: &mut Cx, bytes: &[u8]) -> Result<Value> {
+        cx.factory()
+            .string(String::from_utf8(bytes.to_vec()).map_err(|_| Error::Eval("utf8".into()))?)
+    }
+}
+fn relation_cx() -> Cx {
+    let mut cx = sim_kernel::testing::eager_cx();
+    cx.grant(relation_namespace_capability());
+    cx.grant(relation_table_read_capability());
+    cx.grant(relation_table_write_capability());
+    cx
+}
+fn root() -> RelationDir {
+    RelationDir::open(Arc::new(TextCodec(Symbol::qualified("codec", "test"))))
+}
+
+#[test]
+fn d9_root_nested_operations_and_invariants() {
+    let mut cx = relation_cx();
+    let root = root();
+    assert_eq!(
+        (root.nodes().unwrap()[0].id, root.nodes().unwrap()[0].parent),
+        (0, 0)
+    );
+    let child = root.mkdir(&mut cx, Symbol::new("nested")).unwrap();
+    let dir = child.object().as_dir().unwrap();
+    dir.mkdir(&mut cx, Symbol::new("deep")).unwrap();
+    assert!(root.rmdir(&mut cx, Symbol::new("nested")).is_err());
+    assert!(root.mkdir(&mut cx, Symbol::new("nested")).is_err());
+    assert!(root.mkdir(&mut cx, Symbol::new("bad/name")).is_err());
+    assert_eq!(
+        root.nodes()
+            .unwrap()
+            .iter()
+            .map(|n| n.id)
+            .collect::<Vec<_>>(),
+        vec![0, 1, 2]
+    );
+}
+
+#[test]
+fn values_round_trip_and_failed_mutation_rolls_back() {
+    let mut cx = relation_cx();
+    let root = root();
+    let value = cx.factory().string("hello".into()).unwrap();
+    root.set(&mut cx, Symbol::new("item"), value).unwrap();
+    assert_eq!(
+        root.get(&mut cx, Symbol::new("item"))
+            .unwrap()
+            .object()
+            .as_expr(&mut cx)
+            .unwrap(),
+        Expr::String("hello".into())
+    );
+    let before = root.nodes().unwrap().len();
+    assert!(root.mkdir(&mut cx, Symbol::new("item")).is_err());
+    assert_eq!(root.nodes().unwrap().len(), before);
+    root.del(&mut cx, Symbol::new("item")).unwrap();
+    assert!(!root.has(&mut cx, Symbol::new("item")).unwrap());
+}
+
+#[test]
+fn capabilities_are_independent() {
+    let root = root();
+    let mut relation_only = sim_kernel::testing::eager_cx();
+    relation_only.grant(relation_namespace_capability());
+    assert!(root.keys(&mut relation_only).is_err());
+    let mut table_only = sim_kernel::testing::eager_cx();
+    table_only.grant(relation_table_read_capability());
+    assert!(root.keys(&mut table_only).is_err());
+}
+
+#[test]
+fn codec_mismatch_fails_closed() {
+    let mut cx = relation_cx();
+    let root = root();
+    let value = cx.factory().string("x".into()).unwrap();
+    root.set(&mut cx, Symbol::new("x"), value).unwrap();
+    root.replace_codec_identity(1, Symbol::qualified("codec", "other"));
+    assert!(root.get(&mut cx, Symbol::new("x")).is_err());
+}
+// conformance: relation-backed Table/Dir projection and keyed query views.
+```
 
 Specimen `spec-test/sim-storage/crates/sim-table-override/src/install` is checked by `cargo test`.
 
@@ -747,11 +860,39 @@ fn mandatory_limits_and_bindings_fail_closed() {
         counts: &mut counts,
     };
     sink.push(row.clone()).unwrap();
-    assert!(matches!(sink.push(row), Err(SiteError::Limit("rows"))));
+    assert!(matches!(
+        sink.push(row),
+        Err(SiteError::Limit(LimitKind::Rows))
+    ));
     assert_eq!(rows.len(), 1);
     assert!(matches!(
         enforce_work(&limits, 2),
-        Err(SiteError::Limit("work"))
+        Err(SiteError::Limit(LimitKind::Work))
+    ));
+}
+
+#[test]
+fn sqlite_registration_and_locator_grammar_fail_closed() {
+    let manifest = DriverManifest::sqlite(
+        Symbol::qualified("relation/site", "sqlite"),
+        Symbol::qualified("relation/provider", "sqlite"),
+    )
+    .unwrap();
+    assert_eq!(manifest.site, Symbol::qualified("relation/site", "sqlite"));
+    assert!(matches!(
+        DriverManifest::sqlite(Symbol::new("sqlite"), Symbol::new("sqlite")),
+        Err(SiteError::Registration)
+    ));
+    assert_eq!(
+        StorageLocator::from_datum(&Datum::Node {
+            tag: Symbol::qualified("relation", "memory"),
+            fields: vec![],
+        }),
+        Ok(StorageLocator::Memory)
+    );
+    assert!(matches!(
+        StorageLocator::from_datum(&Datum::String("/tmp/db".into())),
+        Err(SiteError::Locator)
     ));
 }
 
@@ -795,5 +936,549 @@ fn library_declares_site_export() {
     assert!(
         matches!(&lib.manifest().exports[0],Export::Site{symbol,..} if symbol==&Symbol::new("site/relation/recording"))
     );
+}
+```
+
+### `feature/sim-storage/sqlite-relation-locator`
+
+Specimen `spec-test/sim-storage/crates/sim-relation-site/src/tests` is checked by `cargo test`.
+
+Source `crates/sim-relation-site/src/tests.rs`:
+
+```rust
+//! Relation-site conformance: the recording driver proves the bounded host seam.
+
+use super::*;
+use sim_kernel::{CapabilityName, Datum, DatumStore, Ref, testing::bare_cx as cx};
+use sim_relation_core::{Cell, DomainId, FieldName, FieldType, Row, RowType};
+use sim_relation_migrate::CheckedProgram;
+use sim_relation_plan::{CheckedMutation, CheckedQuery};
+use std::sync::{Arc, Mutex};
+
+#[derive(Default)]
+struct Log(Mutex<Vec<&'static str>>);
+struct RecordingDriver {
+    log: Arc<Log>,
+    fail: bool,
+}
+struct RecordingSession {
+    log: Arc<Log>,
+}
+impl Driver for RecordingDriver {
+    fn connect(&self, locator: &Datum, _: &Limits) -> Result<Box<dyn Session>, SiteError> {
+        self.log.0.lock().unwrap().push("connect");
+        if self.fail || !matches!(locator, Datum::String(_)) {
+            Err(SiteError::Locator)
+        } else {
+            Ok(Box::new(RecordingSession {
+                log: self.log.clone(),
+            }))
+        }
+    }
+}
+impl Session for RecordingSession {
+    fn query(
+        &mut self,
+        _: &CheckedQuery,
+        _: &Bindings,
+        _: &Limits,
+        _: &mut dyn RowSink,
+    ) -> Result<ProviderStats, SiteError> {
+        self.log.0.lock().unwrap().push("query");
+        Ok(ProviderStats {
+            work: 1,
+            affected: 0,
+        })
+    }
+    fn mutate(
+        &mut self,
+        _: &CheckedMutation,
+        _: &Bindings,
+        _: &Limits,
+        _: &mut dyn RowSink,
+    ) -> Result<ProviderStats, SiteError> {
+        self.log.0.lock().unwrap().push("mutate");
+        Ok(ProviderStats {
+            work: 1,
+            affected: 1,
+        })
+    }
+    fn migrate(&mut self, _: &CheckedProgram, _: &Limits) -> Result<ProviderStats, SiteError> {
+        self.log.0.lock().unwrap().push("migrate");
+        Ok(ProviderStats {
+            work: 1,
+            affected: 0,
+        })
+    }
+    fn schema(&mut self, _: &CheckedProgram, _: &Limits) -> Result<ProviderStats, SiteError> {
+        self.log.0.lock().unwrap().push("schema");
+        Ok(ProviderStats {
+            work: 1,
+            affected: 0,
+        })
+    }
+    fn transaction(
+        &mut self,
+        body: &mut dyn FnMut(&mut dyn Transaction) -> Result<(), SiteError>,
+    ) -> Result<(), SiteError> {
+        self.log.0.lock().unwrap().push("begin");
+        let mut tx = RecordingTx {
+            log: self.log.clone(),
+        };
+        match body(&mut tx) {
+            Ok(()) => {
+                self.log.0.lock().unwrap().push("commit");
+                Ok(())
+            }
+            Err(e) => {
+                self.log.0.lock().unwrap().push("rollback");
+                Err(e)
+            }
+        }
+    }
+    fn attach(&mut self, _: &Datum, _: &Limits) -> Result<ProviderStats, SiteError> {
+        self.log.0.lock().unwrap().push("attach");
+        Ok(ProviderStats::default())
+    }
+}
+struct RecordingTx {
+    log: Arc<Log>,
+}
+impl Session for RecordingTx {
+    fn query(
+        &mut self,
+        _: &CheckedQuery,
+        _: &Bindings,
+        _: &Limits,
+        _: &mut dyn RowSink,
+    ) -> Result<ProviderStats, SiteError> {
+        Ok(ProviderStats::default())
+    }
+    fn mutate(
+        &mut self,
+        _: &CheckedMutation,
+        _: &Bindings,
+        _: &Limits,
+        _: &mut dyn RowSink,
+    ) -> Result<ProviderStats, SiteError> {
+        Ok(ProviderStats::default())
+    }
+    fn migrate(&mut self, _: &CheckedProgram, _: &Limits) -> Result<ProviderStats, SiteError> {
+        Ok(ProviderStats::default())
+    }
+    fn schema(&mut self, _: &CheckedProgram, _: &Limits) -> Result<ProviderStats, SiteError> {
+        Ok(ProviderStats::default())
+    }
+    fn transaction(
+        &mut self,
+        _: &mut dyn FnMut(&mut dyn Transaction) -> Result<(), SiteError>,
+    ) -> Result<(), SiteError> {
+        Err(SiteError::Provider)
+    }
+    fn attach(&mut self, _: &Datum, _: &Limits) -> Result<ProviderStats, SiteError> {
+        Ok(ProviderStats::default())
+    }
+}
+impl Transaction for RecordingTx {
+    fn savepoint(
+        &mut self,
+        body: &mut dyn FnMut(&mut dyn Transaction) -> Result<(), SiteError>,
+    ) -> Result<(), SiteError> {
+        self.log.0.lock().unwrap().push("savepoint");
+        match body(self) {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                self.log.0.lock().unwrap().push("rollback-savepoint");
+                Err(e)
+            }
+        }
+    }
+}
+fn limits() -> Limits {
+    Limits::new(2, 2, 1000, 2).unwrap()
+}
+fn site(log: Arc<Log>) -> RelationSite {
+    RelationSite::new(
+        RelationPlacement::new(
+            Symbol::new("site/relation/recording"),
+            Datum::String("opaque".into()),
+        ),
+        Arc::new(RecordingDriver { log, fail: false }),
+    )
+}
+
+#[test]
+fn capability_denial_precedes_provider_contact() {
+    let log = Arc::new(Log::default());
+    let mut cx = cx();
+    let err = site(log.clone())
+        .attach(&mut cx, &Datum::Nil, limits())
+        .unwrap_err();
+    assert!(matches!(err, SiteError::Kernel(_)));
+    assert_eq!(cx.effect_ledger().records().len(), 1);
+    assert!(cx.effect_ledger().records()[0].aborted);
+    assert!(log.0.lock().unwrap().is_empty());
+}
+#[test]
+fn transaction_and_savepoint_unwind_totally() {
+    let log = Arc::new(Log::default());
+    let mut cx = cx();
+    cx.grant(CapabilityName::new("relation.transaction"));
+    let err = site(log.clone())
+        .transaction(&mut cx, limits(), |tx| {
+            tx.savepoint(&mut |_tx| Err(SiteError::Provider))
+        })
+        .unwrap_err();
+    assert!(matches!(err, SiteError::Provider));
+    assert_eq!(cx.effect_ledger().records().len(), 1);
+    assert!(cx.effect_ledger().records()[0].aborted);
+    assert_eq!(
+        *log.0.lock().unwrap(),
+        vec![
+            "connect",
+            "begin",
+            "savepoint",
+            "rollback-savepoint",
+            "rollback"
+        ]
+    );
+}
+#[test]
+fn locator_is_validated_only_after_capability() {
+    let log = Arc::new(Log::default());
+    let mut cx = cx();
+    cx.grant(CapabilityName::new("relation.attach"));
+    let placement = RelationPlacement::new(Symbol::new("site/relation/recording"), Datum::Nil);
+    let s = RelationSite::new(
+        placement,
+        Arc::new(RecordingDriver {
+            log: log.clone(),
+            fail: false,
+        }),
+    );
+    assert!(matches!(
+        s.attach(&mut cx, &Datum::Nil, limits()),
+        Err(SiteError::Locator)
+    ));
+    assert_eq!(*log.0.lock().unwrap(), vec!["connect"]);
+}
+#[test]
+fn mandatory_limits_and_bindings_fail_closed() {
+    assert!(matches!(
+        Limits::new(0, 1, 1, 1),
+        Err(SiteError::InvalidLimits)
+    ));
+    let domain = DomainId::new(Symbol::qualified("domain", "text")).unwrap();
+    let row_type = RowType::new([FieldType {
+        name: FieldName::new(Symbol::new("value")).unwrap(),
+        domain: domain.clone(),
+        nullable: false,
+    }])
+    .unwrap();
+    assert!(matches!(
+        Bindings::new(&row_type, []),
+        Err(SiteError::Bindings(_))
+    ));
+
+    let row = Row::new(
+        row_type.clone(),
+        [Cell::new(domain, Some(Datum::String("bounded".into())))],
+    )
+    .unwrap();
+    let mut rows = Vec::new();
+    struct Collect<'a>(&'a mut Vec<Row>);
+    impl RowSink for Collect<'_> {
+        fn push(&mut self, row: Row) -> Result<(), SiteError> {
+            self.0.push(row);
+            Ok(())
+        }
+    }
+    let limits = Limits::new(1, 1, 1_000, 1).unwrap();
+    let mut counts = Counts::default();
+    let mut collect = Collect(&mut rows);
+    let mut sink = BoundedSink {
+        expected: &row_type,
+        limits: &limits,
+        inner: &mut collect,
+        counts: &mut counts,
+    };
+    sink.push(row.clone()).unwrap();
+    assert!(matches!(
+        sink.push(row),
+        Err(SiteError::Limit(LimitKind::Rows))
+    ));
+    assert_eq!(rows.len(), 1);
+    assert!(matches!(
+        enforce_work(&limits, 2),
+        Err(SiteError::Limit(LimitKind::Work))
+    ));
+}
+
+#[test]
+fn sqlite_registration_and_locator_grammar_fail_closed() {
+    let manifest = DriverManifest::sqlite(
+        Symbol::qualified("relation/site", "sqlite"),
+        Symbol::qualified("relation/provider", "sqlite"),
+    )
+    .unwrap();
+    assert_eq!(manifest.site, Symbol::qualified("relation/site", "sqlite"));
+    assert!(matches!(
+        DriverManifest::sqlite(Symbol::new("sqlite"), Symbol::new("sqlite")),
+        Err(SiteError::Registration)
+    ));
+    assert_eq!(
+        StorageLocator::from_datum(&Datum::Node {
+            tag: Symbol::qualified("relation", "memory"),
+            fields: vec![],
+        }),
+        Ok(StorageLocator::Memory)
+    );
+    assert!(matches!(
+        StorageLocator::from_datum(&Datum::String("/tmp/db".into())),
+        Err(SiteError::Locator)
+    ));
+}
+
+#[test]
+fn every_operation_is_capability_gated_and_records_one_effect() {
+    for operation in [
+        Operation::Read,
+        Operation::Write,
+        Operation::Schema,
+        Operation::Migrate,
+        Operation::Transaction,
+        Operation::Attach,
+    ] {
+        let log = Arc::new(Log::default());
+        let relation_site = site(log.clone());
+        let mut denied = cx();
+        let error = relation_site
+            .effect(&mut denied, operation, |_| panic!("denied operation ran"))
+            .unwrap_err();
+        assert!(matches!(error, SiteError::Kernel(_)));
+        assert_eq!(denied.effect_ledger().records().len(), 1);
+        assert!(denied.effect_ledger().records()[0].aborted);
+
+        let mut allowed = cx();
+        allowed.grant(operation.capability());
+        relation_site
+            .effect(&mut allowed, operation, |cx| {
+                cx.datum_store_mut()
+                    .intern(Datum::Nil)
+                    .map(Ref::Content)
+                    .map_err(kernel)
+            })
+            .unwrap();
+        assert_eq!(allowed.effect_ledger().records().len(), 1);
+        assert!(!allowed.effect_ledger().records()[0].aborted);
+    }
+}
+#[test]
+fn library_declares_site_export() {
+    let lib = RelationSiteLib::new(site(Arc::new(Log::default())));
+    assert!(
+        matches!(&lib.manifest().exports[0],Export::Site{symbol,..} if symbol==&Symbol::new("site/relation/recording"))
+    );
+}
+```
+
+### `feature/sim-storage/relation-command`
+
+Specimen `spec-test/sim-storage/crates/sim-lib-relation-cli/src/tests` is checked by `cargo test`.
+
+Source `crates/sim-lib-relation-cli/src/tests.rs`:
+
+```rust
+//! Checked relation-command specimens for discovery and conformance.
+// conformance: closed relation command grammar and authorization boundary.
+
+use super::*;
+use sim_kernel::{Export, Lib};
+use std::sync::{Arc, Mutex};
+
+fn words(input: &str) -> Vec<String> {
+    input.split_whitespace().map(str::to_owned).collect()
+}
+
+#[derive(Default)]
+struct Specimen {
+    seen: Mutex<Vec<RelationCommand>>,
+}
+impl RelationCommands for Specimen {
+    fn execute(&self, command: &RelationCommand) -> Result<String, CommandError> {
+        self.seen.lock().unwrap().push(command.clone());
+        Ok(match command {
+            RelationCommand::Site {
+                action: ReadAction::List,
+                ..
+            } => "provider\tsite\nSQLite\trelation/site/sqlite\n".into(),
+            RelationCommand::Site { id: Some(id), .. } => {
+                format!("logical={id}\nphysical=sqlite:v3\naccess=read-only\n")
+            }
+            RelationCommand::Schema {
+                action: SchemaAction::Inspect,
+                target,
+                ..
+            } => format!("logical={target}\nphysical=schema:legacy-v1\nmode=read-only\n"),
+            RelationCommand::Schema {
+                action: SchemaAction::Adopt,
+                artifact: Some(id),
+                authority: Some(auth),
+                ..
+            } if id == &auth.expected_plan => format!(
+                "logical={id}\nphysical={id}\nplan={id}\nauthorized-by={}\nadopted\n",
+                auth.product
+            ),
+            RelationCommand::Schema {
+                action: SchemaAction::Adopt,
+                artifact: Some(id),
+                authority: Some(auth),
+                ..
+            } => {
+                return Err(CommandError::new(format!(
+                    "drift refusal: checked={id} physical={}",
+                    auth.expected_plan
+                )));
+            }
+            RelationCommand::Schema {
+                artifact: Some(id),
+                authority: Some(auth),
+                ..
+            }
+            | RelationCommand::Migration {
+                artifact: id,
+                authority: Some(auth),
+                ..
+            } if id == &auth.expected_plan => format!(
+                "logical={id}\nphysical=sqlite:v3\nplan={id}\nbounds=rows:100\nauthorized-by={}\napplied\n",
+                auth.product
+            ),
+            RelationCommand::Migration {
+                artifact,
+                authority: None,
+                ..
+            } => {
+                format!("logical=migration\nphysical=sqlite:v2\nplan={artifact}\nbounds=work:100\n")
+            }
+            RelationCommand::Query { plan, limit, .. } => {
+                format!("Table\nplan={plan}\nrows<= {limit}\n")
+            }
+            RelationCommand::Mutation {
+                plan,
+                limit,
+                authority,
+                ..
+            } if plan == &authority.expected_plan => format!(
+                "plan={plan}\nbounds=rows:{limit}\nauthorized-by={}\naffected=1\n",
+                authority.product
+            ),
+            RelationCommand::Mount { target } => {
+                format!("Dir\nmount={target}\nlogical=/relation/customers\nprovider=SQLite\n")
+            }
+            _ => return Err(CommandError::new("checked plan identity mismatch")),
+        })
+    }
+}
+
+#[test]
+fn fresh_database_and_provider_listing_specimen() {
+    let c = parse(&words("relation site list")).unwrap();
+    assert!(Specimen::default().execute(&c).unwrap().contains("SQLite"));
+}
+#[test]
+fn old_file_inspection_is_read_only() {
+    let c = parse(&words("relation schema inspect --site legacy")).unwrap();
+    let out = Specimen::default().execute(&c).unwrap();
+    assert!(out.contains("mode=read-only"));
+}
+#[test]
+fn exact_adoption_renders_ids_authority_and_plan() {
+    let c=parse(&words("relation schema adopt --site db --schema schema:v1 --authorize office --expect-plan schema:v1")).unwrap();
+    let out = Specimen::default().execute(&c).unwrap();
+    assert!(
+        out.contains("logical=schema:v1")
+            && out.contains("physical=schema:v1")
+            && out.contains("authorized-by=office")
+    );
+}
+#[test]
+fn migration_drift_refuses_action() {
+    let c=parse(&words("relation schema adopt --site db --schema schema:v2 --authorize office --expect-plan schema:v1")).unwrap();
+    assert!(
+        Specimen::default()
+            .execute(&c)
+            .unwrap_err()
+            .to_string()
+            .contains("drift refusal")
+    );
+}
+#[test]
+fn bounded_query_specimen() {
+    let c = parse(&words(
+        "relation query run --site db --plan query:customers --limit 5",
+    ))
+    .unwrap();
+    assert!(
+        Specimen::default()
+            .execute(&c)
+            .unwrap()
+            .contains("rows<= 5")
+    );
+}
+#[test]
+fn authorized_mutation_specimen() {
+    let c=parse(&words("relation mutation run --site db --plan mutation:add --limit 1 --authorize ledger --expect-plan mutation:add")).unwrap();
+    assert!(
+        Specimen::default()
+            .execute(&c)
+            .unwrap()
+            .contains("affected=1")
+    );
+}
+#[test]
+fn mount_explanation_specimen() {
+    let c = parse(&words("relation mount explain --mount customer-db")).unwrap();
+    assert!(Specimen::default().execute(&c).unwrap().starts_with("Dir"));
+}
+#[test]
+fn every_documented_operation_parses() {
+    for input in [
+        "relation site show --site db",
+        "relation schema apply --site db --schema schema:v2 --authorize office --expect-plan schema:v2",
+        "relation migration plan --site db --migration migration:v2",
+        "relation migration apply --site db --migration migration:v2 --authorize office --expect-plan migration:v2",
+    ] {
+        parse(&words(input)).unwrap();
+    }
+}
+#[test]
+fn mutation_and_adoption_require_product_authority() {
+    for input in [
+        "relation mutation run --site db --plan p",
+        "relation schema adopt --site db --schema s",
+    ] {
+        assert!(
+            parse(&words(input))
+                .unwrap_err()
+                .to_string()
+                .contains("--authorize")
+        );
+    }
+}
+#[test]
+fn raw_sql_escape_is_absent() {
+    assert!(
+        parse(&words("relation query run --site db --sql SELECT"))
+            .unwrap_err()
+            .to_string()
+            .contains("raw SQL")
+    );
+}
+#[test]
+fn library_exports_exact_relation_handoff() {
+    let lib = RelationCommandLib::new(Arc::new(Specimen::default()));
+    assert!(Lib::manifest(&lib).exports.iter().any(
+        |e| matches!(e, Export::Function{symbol,..} if symbol==&relation_entrypoint_symbol())
+    ));
 }
 ```

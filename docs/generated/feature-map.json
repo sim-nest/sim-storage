@@ -9,6 +9,11 @@
     {
       "features": [],
       "group": "workspace",
+      "package": "sim-lib-relation-cli"
+    },
+    {
+      "features": [],
+      "group": "workspace",
       "package": "sim-list-cell"
     },
     {
@@ -68,6 +73,11 @@
       "features": [],
       "group": "workspace",
       "package": "sim-table-override"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-table-relation"
     },
     {
       "features": [],

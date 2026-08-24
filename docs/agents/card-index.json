@@ -10,6 +10,11 @@
     "crates/sim-table-mount/recipes/01-basics/backend-composition/recipe.toml",
     "crates/sim-table-mount/recipes/01-basics/backend-composition/setup.siml",
     "crates/sim-table-mount/recipes/01-basics/chapter.toml",
-    "crates/sim-table-mount/recipes/book.toml"
+    "crates/sim-table-mount/recipes/book.toml",
+    "crates/sim-table-relation/recipes/01-basics/chapter.toml",
+    "crates/sim-table-relation/recipes/01-basics/relational-mount/purpose.md",
+    "crates/sim-table-relation/recipes/01-basics/relational-mount/recipe.toml",
+    "crates/sim-table-relation/recipes/01-basics/relational-mount/setup.siml",
+    "crates/sim-table-relation/recipes/book.toml"
   ]
 }

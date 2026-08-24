@@ -94,3 +94,4 @@ fn codec_mismatch_fails_closed() {
     root.replace_codec_identity(1, Symbol::qualified("codec", "other"));
     assert!(root.get(&mut cx, Symbol::new("x")).is_err());
 }
+// conformance: relation-backed Table/Dir projection and keyed query views.

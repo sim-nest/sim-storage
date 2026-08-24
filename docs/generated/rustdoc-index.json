@@ -9,6 +9,13 @@
       "summary": "Domain-free atomic journal behavior over content-addressed objects."
     },
     {
+      "crate_name": "sim_lib_relation_cli",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-relation-cli/Cargo.toml",
+      "package": "sim-lib-relation-cli",
+      "summary": "Loadable command surface for checked relational data."
+    },
+    {
       "crate_name": "sim_list_cell",
       "group": "workspace",
       "manifest": "crates/sim-list-cell/Cargo.toml",
@@ -77,6 +84,13 @@
       "manifest": "crates/sim-table-override/Cargo.toml",
       "package": "sim-table-override",
       "summary": "Override (overlay) table backend for the SIM constellation."
+    },
+    {
+      "crate_name": "sim_table_relation",
+      "group": "workspace",
+      "manifest": "crates/sim-table-relation/Cargo.toml",
+      "package": "sim-table-relation",
+      "summary": "Relation-backed implementations of the standard Table and Dir contracts."
     },
     {
       "crate_name": "xtask",
