@@ -93,6 +93,17 @@ claims_specimens = [
 ]
 
 [[feature]]
+id = "feature/sim-storage/sqlite-relation-locator"
+title = "Closed SQLite relation locator and driver identity"
+summary = "Admit only memory or capability-bearing preopened storage references and one canonical SQLite provider registration without exposing native paths or SQL."
+owner = "crate/sim-relation-site"
+audiences = ["code", "framework"]
+guidance = "Use StorageLocator and DriverManifest at the logical relation boundary. A selected platform capsule resolves preopened references and owns all driver values, paths, prepared text, and provider mechanics."
+claims_anchors = ["anchor/crate/sim-relation-site"]
+claims_specimens = ["spec-test/sim-storage/crates/sim-relation-site/src/tests"]
+supports = ["feature/sim-storage/bounded-relation-site"]
+
+[[feature]]
 id = "feature/sim-storage/contract-emitter"
 title = "Storage contract emitter"
 summary = "Emit generated repository contract and index fragments for storage crates."

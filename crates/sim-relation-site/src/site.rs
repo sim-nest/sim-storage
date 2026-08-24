@@ -271,43 +271,47 @@ impl RowSink for BoundedSink<'_> {
         }
         let cells = row.cells().len() as u64;
         let bytes = format!("{:?}", row.to_datum()).len() as u64;
-        self.counts.rows = self
+        let rows = self
             .counts
             .rows
             .checked_add(1)
-            .ok_or(SiteError::Limit("rows"))?;
-        self.counts.cells = self
+            .ok_or(SiteError::Limit(crate::LimitKind::Rows))?;
+        let cells = self
             .counts
             .cells
             .checked_add(cells)
-            .ok_or(SiteError::Limit("cells"))?;
-        self.counts.bytes = self
+            .ok_or(SiteError::Limit(crate::LimitKind::Cells))?;
+        let bytes = self
             .counts
             .bytes
             .checked_add(bytes)
-            .ok_or(SiteError::Limit("bytes"))?;
-        if self.counts.rows > self.limits.rows {
-            return Err(SiteError::Limit("rows"));
+            .ok_or(SiteError::Limit(crate::LimitKind::Bytes))?;
+        if rows > self.limits.rows {
+            return Err(SiteError::Limit(crate::LimitKind::Rows));
         }
-        if self.counts.cells > self.limits.cells {
-            return Err(SiteError::Limit("cells"));
+        if cells > self.limits.cells {
+            return Err(SiteError::Limit(crate::LimitKind::Cells));
         }
-        if self.counts.bytes > self.limits.bytes {
-            return Err(SiteError::Limit("bytes"));
+        if bytes > self.limits.bytes {
+            return Err(SiteError::Limit(crate::LimitKind::Bytes));
         }
-        self.inner.push(row)
+        self.inner.push(row)?;
+        self.counts.rows = rows;
+        self.counts.cells = cells;
+        self.counts.bytes = bytes;
+        Ok(())
     }
 }
 pub(crate) fn enforce_work(l: &Limits, work: u64) -> Result<(), SiteError> {
     if work > l.work {
-        Err(SiteError::Limit("work"))
+        Err(SiteError::Limit(crate::LimitKind::Work))
     } else {
         Ok(())
     }
 }
 fn enforce_deadline(limits: &Limits, elapsed: Duration) -> Result<(), SiteError> {
     if limits.deadline.is_some_and(|deadline| elapsed > deadline) {
-        Err(SiteError::Limit("deadline"))
+        Err(SiteError::Limit(crate::LimitKind::Deadline))
     } else {
         Ok(())
     }
