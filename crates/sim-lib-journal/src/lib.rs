@@ -8,6 +8,7 @@
 mod backend;
 mod entry;
 mod head;
+mod host;
 mod lease;
 mod memory;
 mod object;
@@ -18,6 +19,7 @@ mod verify;
 pub use backend::{Admission, JournalBackend, StoredState};
 pub use entry::JournalEntry;
 pub use head::JournalHead;
+pub use host::{BackendCapabilities, Failpoint, HostDirJournalBackend};
 pub use lease::Lease;
 pub use memory::MemoryBackend;
 pub use object::JournalObject;

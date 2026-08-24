@@ -36,6 +36,12 @@ pub enum JournalError {
     CorruptState(&'static str),
     #[error("backend failure: {0}")]
     Backend(String),
+    #[error("backend cannot satisfy durable journal writes: {0}")]
+    WriteRefused(&'static str),
+    #[error("journal verification exceeded its caller-supplied work bound")]
+    WorkBoundExceeded,
+    #[error("injected crash at {0}")]
+    InjectedCrash(&'static str),
 }
 
 pub(crate) fn verify_batch(

@@ -1,6 +1,10 @@
 use crate::*;
 use sim_kernel::{ContentId, Symbol};
+use sim_storage_port::{
+    Cancellation, HostCompareExchange, HostDirError, HostDirErrorKind, HostDirPort, HostEntry,
+};
 use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Mutex};
 
 fn object(byte: u8) -> JournalObject {
     JournalObject::from_bytes([byte])
@@ -200,4 +204,189 @@ fn every_short_two_writer_interleaving_has_one_sequence_zero_winner() {
             "schedule {schedule:?} accepted two identities"
         );
     }
+}
+
+#[derive(Default)]
+struct TestPort {
+    files: Mutex<BTreeMap<Vec<String>, Vec<u8>>>,
+}
+impl TestPort {
+    fn corrupt_one_byte(&self) {
+        let mut files = self.files.lock().unwrap();
+        let value = files
+            .iter_mut()
+            .find(|(p, _)| p.first().is_some_and(|v| v == "objects"))
+            .unwrap()
+            .1;
+        value[0] ^= 1;
+    }
+}
+impl HostDirPort for TestPort {
+    fn label(&self) -> &str {
+        "test"
+    }
+    fn list(&self, _: &[String]) -> Result<Vec<HostEntry>, HostDirError> {
+        Ok(vec![])
+    }
+    fn metadata(&self, path: &[String]) -> Result<Option<HostEntry>, HostDirError> {
+        Ok(self.files.lock().unwrap().get(path).map(|v| HostEntry {
+            name: path.last().unwrap().clone(),
+            kind: sim_storage_port::HostEntryKind::File,
+            len: v.len() as u64,
+        }))
+    }
+    fn read(&self, path: &[String]) -> Result<Vec<u8>, HostDirError> {
+        self.files
+            .lock()
+            .unwrap()
+            .get(path)
+            .cloned()
+            .ok_or_else(|| HostDirError::new(HostDirErrorKind::NotFound, "absent"))
+    }
+    fn replace(
+        &self,
+        path: &[String],
+        bytes: &[u8],
+        _: &dyn Cancellation,
+    ) -> Result<(), HostDirError> {
+        self.files
+            .lock()
+            .unwrap()
+            .insert(path.to_vec(), bytes.to_vec());
+        Ok(())
+    }
+    fn compare_exchange(
+        &self,
+        path: &[String],
+        expected: Option<&[u8]>,
+        replacement: Option<&[u8]>,
+        _: &dyn Cancellation,
+    ) -> Result<HostCompareExchange, HostDirError> {
+        let mut files = self.files.lock().unwrap();
+        let observed = files.get(path).cloned();
+        let exchanged = observed.as_deref() == expected;
+        if exchanged {
+            match replacement {
+                Some(v) => {
+                    files.insert(path.to_vec(), v.to_vec());
+                }
+                None => {
+                    files.remove(path);
+                }
+            }
+        }
+        Ok(HostCompareExchange {
+            exchanged,
+            observed,
+        })
+    }
+    fn remove_file(&self, path: &[String]) -> Result<(), HostDirError> {
+        self.files.lock().unwrap().remove(path);
+        Ok(())
+    }
+    fn create_dir(&self, _: &[String]) -> Result<(), HostDirError> {
+        Ok(())
+    }
+    fn remove_dir_all(&self, _: &[String]) -> Result<(), HostDirError> {
+        Ok(())
+    }
+    fn child(&self, _: &str) -> Result<Arc<dyn HostDirPort>, HostDirError> {
+        Err(HostDirError::new(HostDirErrorKind::Unsupported, "unused"))
+    }
+}
+
+fn capabilities() -> BackendCapabilities {
+    BackendCapabilities {
+        linearizable_cas: true,
+        durable_publish: true,
+    }
+}
+
+#[test]
+fn host_backend_refuses_unsafe_writes_and_read_open_is_bounded() {
+    let port = Arc::new(TestPort::default());
+    let unsafe_backend = HostDirJournalBackend::open(
+        port.clone(),
+        BackendCapabilities {
+            linearizable_cas: false,
+            durable_publish: true,
+        },
+        10,
+    )
+    .unwrap();
+    assert!(matches!(
+        unsafe_backend.acquire_lease(),
+        Err(JournalError::WriteRefused(_))
+    ));
+    assert!(matches!(
+        HostDirJournalBackend::open(port, capabilities(), 0),
+        Err(JournalError::WorkBoundExceeded)
+    ));
+}
+
+#[test]
+fn host_failpoints_reopen_to_old_or_new_head_and_verify_content() {
+    for point in [
+        Failpoint::BeforeObjectPublish,
+        Failpoint::AfterObjectPublish,
+        Failpoint::AfterDurabilityReceipt,
+        Failpoint::BeforeCas,
+        Failpoint::AfterCas,
+        Failpoint::BeforeAcknowledgement,
+    ] {
+        let port = Arc::new(TestPort::default());
+        let backend = HostDirJournalBackend::open(port.clone(), capabilities(), 20).unwrap();
+        let lease = backend.acquire_lease().unwrap();
+        let crashing = Journal::new(backend.with_failpoint_hook(move |seen| seen == point));
+        let payload = object(7);
+        let fact = entry(0, None, &payload);
+        assert!(matches!(
+            crashing.publish(&lease, None, vec![payload], vec![fact]),
+            Err(JournalError::InjectedCrash(_))
+        ));
+        let reopened = Journal::new(HostDirJournalBackend::open(port, capabilities(), 20).unwrap());
+        let head = reopened.head().unwrap();
+        if matches!(
+            point,
+            Failpoint::AfterCas | Failpoint::BeforeAcknowledgement
+        ) {
+            assert!(head.is_some());
+            assert_eq!(reopened.verify().unwrap().entries.len(), 1)
+        } else {
+            assert!(head.is_none())
+        }
+    }
+}
+
+#[test]
+fn host_put_if_absent_contention_projection_and_corruption_laws() {
+    let port = Arc::new(TestPort::default());
+    let a = HostDirJournalBackend::open(port.clone(), capabilities(), 20).unwrap();
+    let b = HostDirJournalBackend::open(port.clone(), capabilities(), 20).unwrap();
+    let lease_a = a.acquire_lease().unwrap();
+    let lease_b = b.acquire_lease().unwrap();
+    let one = object(1);
+    let two = object(2);
+    assert_eq!(
+        a.admit(Admission {
+            fence: lease_a.fence(),
+            expected: None,
+            objects: vec![one.clone()],
+            entries: vec![entry(0, None, &one)]
+        }),
+        Err(JournalError::StaleLease)
+    );
+    b.admit(Admission {
+        fence: lease_b.fence(),
+        expected: None,
+        objects: vec![two.clone()],
+        entries: vec![entry(0, None, &two)],
+    })
+    .unwrap();
+    let reopened =
+        Journal::new(HostDirJournalBackend::open(port.clone(), capabilities(), 20).unwrap());
+    assert!(!reopened.table_projection().unwrap().rows().is_empty());
+    assert!(!reopened.dir_projection().unwrap().journal().is_empty());
+    port.corrupt_one_byte();
+    assert!(HostDirJournalBackend::open(port, capabilities(), 20).is_err());
 }
