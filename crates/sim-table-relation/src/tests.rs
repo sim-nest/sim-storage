@@ -1,7 +1,5 @@
 use super::*;
-use sim_kernel::{
-    Cx, DefaultFactory, Dir, EagerPolicy, Error, Expr, HandleSeed, Result, Symbol, Table, Value,
-};
+use sim_kernel::{Cx, Dir, Error, Expr, Result, Symbol, Table, Value};
 use std::sync::Arc;
 
 struct TextCodec(Symbol);
@@ -20,12 +18,8 @@ impl RelationValueCodec for TextCodec {
             .string(String::from_utf8(bytes.to_vec()).map_err(|_| Error::Eval("utf8".into()))?)
     }
 }
-fn cx() -> Cx {
-    let mut cx = Cx::new(
-        Arc::new(EagerPolicy),
-        Arc::new(DefaultFactory),
-        HandleSeed::new(8),
-    );
+fn relation_cx() -> Cx {
+    let mut cx = sim_kernel::testing::eager_cx();
     cx.grant(relation_namespace_capability());
     cx.grant(relation_table_read_capability());
     cx.grant(relation_table_write_capability());
@@ -37,7 +31,7 @@ fn root() -> RelationDir {
 
 #[test]
 fn d9_root_nested_operations_and_invariants() {
-    let mut cx = cx();
+    let mut cx = relation_cx();
     let root = root();
     assert_eq!(
         (root.nodes().unwrap()[0].id, root.nodes().unwrap()[0].parent),
@@ -61,7 +55,7 @@ fn d9_root_nested_operations_and_invariants() {
 
 #[test]
 fn values_round_trip_and_failed_mutation_rolls_back() {
-    let mut cx = cx();
+    let mut cx = relation_cx();
     let root = root();
     let value = cx.factory().string("hello".into()).unwrap();
     root.set(&mut cx, Symbol::new("item"), value).unwrap();
@@ -83,25 +77,17 @@ fn values_round_trip_and_failed_mutation_rolls_back() {
 #[test]
 fn capabilities_are_independent() {
     let root = root();
-    let mut relation_only = Cx::new(
-        Arc::new(EagerPolicy),
-        Arc::new(DefaultFactory),
-        HandleSeed::new(9),
-    );
+    let mut relation_only = sim_kernel::testing::eager_cx();
     relation_only.grant(relation_namespace_capability());
     assert!(root.keys(&mut relation_only).is_err());
-    let mut table_only = Cx::new(
-        Arc::new(EagerPolicy),
-        Arc::new(DefaultFactory),
-        HandleSeed::new(10),
-    );
+    let mut table_only = sim_kernel::testing::eager_cx();
     table_only.grant(relation_table_read_capability());
     assert!(root.keys(&mut table_only).is_err());
 }
 
 #[test]
 fn codec_mismatch_fails_closed() {
-    let mut cx = cx();
+    let mut cx = relation_cx();
     let root = root();
     let value = cx.factory().string("x".into()).unwrap();
     root.set(&mut cx, Symbol::new("x"), value).unwrap();
