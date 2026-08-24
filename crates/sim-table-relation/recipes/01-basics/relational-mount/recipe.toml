@@ -1,0 +1,5 @@
+schema = "sim.recipe"
+id = "relational-mount"
+title = "Mount a relation-backed directory beside a filesystem directory"
+purpose = "Compose RelationDir with MountedDir while preserving separate relation, Table/Dir, mount, and filesystem authority."
+entrypoint = "setup.siml"

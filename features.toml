@@ -37,11 +37,30 @@ claims_anchors = [
   "anchor/crate/sim-table-hash",
   "anchor/crate/sim-table-lazy",
   "anchor/crate/sim-table-override",
+  "anchor/crate/sim-table-relation",
   "anchor/runtime-lib/sim-list-cell/cons-list-lib",
   "anchor/runtime-lib/sim-list-lazy/lazy-list-lib",
   "anchor/runtime-lib/sim-table-hash/hash-table-lib",
   "anchor/runtime-lib/sim-table-lazy/lazy-table-lib",
   "anchor/runtime-lib/sim-table-override/override-table-lib",
+]
+
+[[feature]]
+id = "feature/sim-storage/relation-table-dir-projection"
+title = "Relation-backed Table/Dir and keyed query views"
+summary = "Project a D9 node relation as a transactional Table/Dir namespace and admitted uniquely keyed query results as deterministic read-only tables."
+owner = "crate/sim-table-relation"
+audiences = ["code", "framework"]
+guidance = "Compose RelationDir with sim-table-core paths and MountedDir; retain codec identity, canonical Table CAS publication, and independent relation and Table/Dir capabilities. Use RelationView only with a non-null admitted unique key projection."
+claims_anchors = ["anchor/crate/sim-table-relation"]
+claims_specimens = [
+  "spec-test/sim-storage/crates/sim-table-relation/src/tests",
+  "recipe/sim-storage/crates/sim-table-relation/01-basics/relational-mount",
+]
+supports = [
+  "feature/sim-storage/table-dir-backends",
+  "feature/sim-storage/mounted-table-dir-namespace",
+  "feature/sim-foundation/table-dir-core",
 ]
 claims_specimens = [
   "spec-test/sim-storage/crates/sim-table-override/src/install",

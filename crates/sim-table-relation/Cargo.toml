@@ -1,0 +1,22 @@
+[package]
+name = "sim-table-relation"
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+description = "Relation-backed Table/Dir namespace and keyed read-only relation views for SIM."
+readme = "README.md"
+publish = true
+repository = "https://github.com/sim-nest/sim-storage"
+homepage = "https://github.com/sim-nest/sim-storage"
+
+[dependencies]
+sim-kernel = { version = "0.2.0" }
+sim-relation-core = { version = "0.1.0", path = "../../../sim-foundation/crates/sim-relation-core" }
+sim-relation-plan = { version = "0.1.0", path = "../../../sim-foundation/crates/sim-relation-plan" }
+sim-table-core = { version = "0.1.4" }
+
+[dev-dependencies]
+sim-kernel = { version = "0.2.0", features = ["test-support"] }
+
+[lints]
+workspace = true

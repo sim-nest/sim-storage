@@ -1,0 +1,6 @@
+;; The host injects `relation-dir` and `filesystem-dir`; neither mount mints
+;; the capabilities needed to read or mutate either backend.
+(define namespace (table/mount:create relation-dir))
+(table/mount:dir namespace "/files" filesystem-dir)
+(table/mount:dir namespace "/records" relation-dir)
+namespace

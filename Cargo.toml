@@ -12,6 +12,7 @@ members = [
   "crates/sim-table-http",
   "crates/sim-table-lazy",
   "crates/sim-table-mount",
+  "crates/sim-table-relation",
   "crates/sim-table-override",
   "xtask",
 ]
