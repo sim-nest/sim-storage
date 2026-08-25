@@ -1,0 +1,23 @@
+[package]
+name = "sim-table-sealed"
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+description = "Authenticated encryption decorator for SIM Table and Dir backends."
+readme = "README.md"
+publish = true
+repository = "https://github.com/sim-nest/sim-storage"
+homepage = "https://github.com/sim-nest/sim-storage"
+
+[dependencies]
+ring = "=0.17.14"
+sim-codec = { version = "0.1.8" }
+sim-kernel = { version = "0.2.0" }
+zeroize = "=1.9.0"
+
+[dev-dependencies]
+sim-kernel = { version = "0.2.0", features = ["test-support"] }
+sim-table-db = { version = "0.1.1" }
+
+[lints]
+workspace = true

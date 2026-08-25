@@ -40,6 +40,21 @@ supports = [
 ]
 
 [[feature]]
+id = "feature/sim-storage/sealed-table-decorator"
+title = "Sealed authenticated Table/Dir decorator"
+summary = "Wrap an existing Table or Dir with versioned authenticated encryption, lane-bound blinded names, injected revocable keys, and injected unique nonces without changing backend semantics."
+owner = "crate/sim-table-sealed"
+audiences = ["code", "framework"]
+guidance = "Compose SealedTable around a persistent Table/Dir only after the host injects a revocable KeyProvider and cryptographically secure uniqueness-providing NonceSource. Treat lane, generation, metadata class, ciphertext size, timing, and access patterns according to the documented leakage policy; use ordinary Table/Dir operations from Lisp and never surface raw keys or a crypto primitive there."
+claims_anchors = ["anchor/crate/sim-table-sealed"]
+claims_specimens = [
+  "spec-test/sim-storage/crates/sim-table-sealed/src/tests",
+]
+supports = [
+  "feature/sim-storage/table-dir-backends",
+]
+
+[[feature]]
 id = "feature/sim-storage/table-dir-backends"
 title = "Table and Dir backends"
 summary = "Provide hash, database, mounted, and view Table/Dir implementations, with honest linearizable compare-exchange where the backend can establish one atomic boundary."
@@ -203,6 +218,17 @@ steps = [
   { feature = "feature/sim-sdk/relation-composition", why = "The SDK facade exposes the supported relation composition." },
   { feature = "feature/sim-storage/relation-command", why = "The loadable command parses only named, authorized, bounded operations." },
   { specimen = "spec-test/sim-storage/crates/sim-lib-relation-cli/src/tests", why = "Checked specimens cover creation, inspection, adoption, drift refusal, query, mutation, providers, and mounts." },
+]
+
+[[route]]
+id = "route/seal-table-dir-backend"
+title = "Seal a Table/Dir backend"
+audiences = ["framework", "code"]
+steps = [
+  { feature = "feature/sim-foundation/table-dir-core", why = "Keep the canonical Table and Dir contracts." },
+  { feature = "feature/sim-storage/table-dir-backends", why = "Select the persistent backend that continues to own storage semantics." },
+  { feature = "feature/sim-storage/sealed-table-decorator", why = "Inject host-owned key and nonce services, then wrap the backend with lane-bound authenticated encryption." },
+  { specimen = "spec-test/sim-storage/crates/sim-table-sealed/src/tests", why = "The checked fixture proves the host/Lisp authority boundary, persistent Dir composition, and fail-closed authenticated bindings." },
 ]
 
 [[route]]

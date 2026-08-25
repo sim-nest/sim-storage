@@ -1,0 +1,5 @@
+book = "storage/table-sealed"
+title = "Sealed Table/Dir"
+summary = "Use authenticated encrypted lanes through the ordinary Table/Dir surface."
+order = 127
+chapters = ["01-basics"]

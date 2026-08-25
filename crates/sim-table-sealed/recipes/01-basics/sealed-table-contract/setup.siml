@@ -1,0 +1,5 @@
+{
+  '(operations
+      (get set has del keys entries len clear mkdir opendir rmdir is-dir)
+      crypto-operations ())
+}
