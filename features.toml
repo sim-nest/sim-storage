@@ -25,6 +25,21 @@ claims_anchors = [
 ]
 
 [[feature]]
+id = "feature/sim-storage/mutual-copied-projection"
+title = "Two-key mutual copied projection"
+summary = "Copy one Shape-admitted fact and provenance between opaque peer archives only after two independent acceptances, with expiry, revocation, and minimum tombstones."
+owner = "crate/sim-mutual-projection"
+audiences = ["code", "framework"]
+guidance = "Use MutualPorch when peers share selected facts but must never mount or query one another's stores. Keep key providers and archives outside the porch; bind both key identities, the exact field Shape, content identity, provenance, and expiry in the immutable offer."
+claims_anchors = ["anchor/crate/sim-mutual-projection"]
+claims_specimens = ["spec-test/sim-storage/crates/sim-mutual-projection/src/tests"]
+supports = [
+  "feature/sim-storage/atomic-content-journal",
+  "feature/sim-storage/table-dir-backends",
+  "feature/sim-foundation/table-dir-core",
+]
+
+[[feature]]
 id = "feature/sim-storage/table-dir-backends"
 title = "Table and Dir backends"
 summary = "Provide hash, database, mounted, and view Table/Dir implementations, with honest linearizable compare-exchange where the backend can establish one atomic boundary."

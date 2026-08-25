@@ -1,0 +1,22 @@
+[package]
+name = "sim-mutual-projection"
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+description = "Two-key copied projections without shared archive authority."
+readme = "README.md"
+publish = true
+repository = "https://github.com/sim-nest/sim-storage"
+homepage = "https://github.com/sim-nest/sim-storage"
+
+[package.metadata.sim-recipes]
+policy = "rustdoc"
+reason = "The complete synthetic-peer protocol specimen is checked as crate tests and rustdoc."
+
+[dependencies]
+sha2 = "0.10"
+sim-kernel = { version = "0.2.1" }
+thiserror = "2"
+
+[lints]
+workspace = true

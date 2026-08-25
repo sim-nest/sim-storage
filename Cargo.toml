@@ -3,6 +3,7 @@
 resolver = "3"
 members = [
   "crates/sim-lib-journal",
+  "crates/sim-mutual-projection",
   "crates/sim-lib-relation-cli",
   "crates/sim-list-cell",
   "crates/sim-list-lazy",
