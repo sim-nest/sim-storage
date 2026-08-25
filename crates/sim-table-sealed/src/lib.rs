@@ -13,15 +13,30 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
+mod backup;
 mod blind;
 mod codec;
+mod destroy;
 mod error;
 mod format;
+mod generation;
+mod key_provider;
 mod table;
 
+pub use backup::{BackupEnvelope, BackupPart};
+pub use destroy::{DestructionEvidence, LeakageDeclaration};
 pub use error::SealedError;
 pub use format::{Binding, NONCE_LEN, SUITE_CHACHA20_POLY1305, SealedObject, TAG_LEN, VERSION};
+pub use generation::{
+    Generation, GenerationId, GenerationManager, GenerationManifest, GenerationStore, Lane,
+    ManagedError, RecoveryReport,
+};
+pub use key_provider::{
+    GenerationKeyProvider, KeyGrant, KeyRef, ProviderError, ProviderReceipt, WrappedKey,
+};
 pub use table::{KeyProvider, NonceSource, SealedConfig, SealedTable, SecretKey};
 
+#[cfg(test)]
+mod lifecycle_tests;
 #[cfg(test)]
 mod tests;
