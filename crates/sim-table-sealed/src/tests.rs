@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use sim_kernel::{Cx, DefaultFactory, EagerPolicy, Expr, HandleSeed, Symbol, Value};
+use sim_kernel::{Cx, Expr, Symbol, Value, testing::bare_cx};
 use sim_table_db::{
     install_db_dir_lib, table_db_capability, table_db_mkdir_capability, table_db_read_capability,
     table_db_rmdir_capability, table_db_write_capability,
@@ -54,14 +54,6 @@ impl NonceSource for Nonces {
             .ok_or(SealedError::NonceBudgetExhausted)?;
         Ok(())
     }
-}
-
-fn cx() -> Cx {
-    Cx::new(
-        Arc::new(EagerPolicy),
-        Arc::new(DefaultFactory),
-        HandleSeed::new(7),
-    )
 }
 
 fn config(keys: Arc<Keys>, nonces: Arc<Nonces>, lane: &[u8], generation: u64) -> SealedConfig {
@@ -114,7 +106,7 @@ fn assert_auth_failure(result: sim_kernel::Result<Value>) {
 
 #[test]
 fn round_trip_blinds_names_and_preserves_table_contract() {
-    let mut cx = cx();
+    let mut cx = bare_cx();
     let backend = cx.new_table(vec![]).unwrap();
     let key = [11; 32];
     let sealed = wrap(
@@ -156,7 +148,7 @@ fn round_trip_blinds_names_and_preserves_table_contract() {
 
 #[test]
 fn wrong_key_revoked_grant_and_repeated_nonce_are_refused_without_secret_diagnostics() {
-    let mut cx = cx();
+    let mut cx = bare_cx();
     let backend = cx.new_table(vec![]).unwrap();
     let keys = Arc::new(Keys::new([21; 32]));
     let sealed = wrap(
@@ -193,7 +185,7 @@ fn wrong_key_revoked_grant_and_repeated_nonce_are_refused_without_secret_diagnos
 
 #[test]
 fn moved_generation_metadata_tamper_and_swapped_ciphertext_fail_closed() {
-    let mut cx = cx();
+    let mut cx = bare_cx();
     let backend = cx.new_table(vec![]).unwrap();
     let key = [31; 32];
     let keys = Arc::new(Keys::new(key));
@@ -277,7 +269,7 @@ fn moved_generation_metadata_tamper_and_swapped_ciphertext_fail_closed() {
 
 #[test]
 fn forged_header_corruption_and_oversized_objects_are_refused_while_other_lane_is_stable() {
-    let mut cx = cx();
+    let mut cx = bare_cx();
     let backend = cx.new_table(vec![]).unwrap();
     let key = [41; 32];
     let keys = Arc::new(Keys::new(key));
@@ -373,7 +365,7 @@ fn forged_header_corruption_and_oversized_objects_are_refused_while_other_lane_i
 
 #[test]
 fn persistent_dir_is_decorated_only_through_table_and_dir_contracts() {
-    let mut cx = cx();
+    let mut cx = bare_cx();
     for capability in [
         table_db_capability(),
         table_db_read_capability(),
