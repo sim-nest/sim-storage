@@ -237,3 +237,4 @@ fn partial_failure_publishes_nothing_and_independent_restore_redelivers() {
     let restored = porch.read(&offer.id).unwrap();
     assert_eq!(receipt.copied, super::model::copied_id(&restored));
 }
+// conformance: mutual-projection tests prove deterministic reconciliation and refusal semantics.

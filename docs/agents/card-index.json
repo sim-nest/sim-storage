@@ -15,6 +15,11 @@
     "crates/sim-table-relation/recipes/01-basics/relational-mount/purpose.md",
     "crates/sim-table-relation/recipes/01-basics/relational-mount/recipe.toml",
     "crates/sim-table-relation/recipes/01-basics/relational-mount/setup.siml",
-    "crates/sim-table-relation/recipes/book.toml"
+    "crates/sim-table-relation/recipes/book.toml",
+    "crates/sim-table-sealed/recipes/01-basics/chapter.toml",
+    "crates/sim-table-sealed/recipes/01-basics/sealed-table-contract/purpose.md",
+    "crates/sim-table-sealed/recipes/01-basics/sealed-table-contract/recipe.toml",
+    "crates/sim-table-sealed/recipes/01-basics/sealed-table-contract/setup.siml",
+    "crates/sim-table-sealed/recipes/book.toml"
   ]
 }

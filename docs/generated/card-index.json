@@ -1,17 +1,11 @@
 {
-  "card_count": 5,
+  "card_count": 6,
   "cards": [
     {
       "id": "browse/catalog",
       "kind": "browse-root",
       "owner": "workspace",
       "summary": "root browse catalog"
-    },
-    {
-      "id": "cookbook/sim-table-relation",
-      "kind": "cookbook-recipe",
-      "owner": "sim-table-relation",
-      "summary": ""
     },
     {
       "id": "cookbook/storage/table-http",
@@ -24,6 +18,18 @@
       "kind": "cookbook-recipe",
       "owner": "sim-table-mount",
       "summary": "Compose independently owned Table and Dir backends behind one directory view."
+    },
+    {
+      "id": "cookbook/storage/table-sealed",
+      "kind": "cookbook-recipe",
+      "owner": "sim-table-sealed",
+      "summary": "Use authenticated encrypted lanes through the ordinary Table/Dir surface."
+    },
+    {
+      "id": "cookbook/table/relation",
+      "kind": "cookbook-recipe",
+      "owner": "sim-table-relation",
+      "summary": "Expose checked relation providers through Table and Dir contracts."
     },
     {
       "id": "registry/catalog",

@@ -11,8 +11,8 @@ homepage = "https://github.com/sim-nest/sim-storage"
 
 [dependencies]
 sim-kernel = { version = "0.2.0" }
-sim-relation-core = { version = "0.1.0", path = "../../../sim-foundation/crates/sim-relation-core" }
-sim-relation-plan = { version = "0.1.0", path = "../../../sim-foundation/crates/sim-relation-plan" }
+sim-relation-core = { version = "0.1.0" }
+sim-relation-plan = { version = "0.1.0" }
 sim-table-core = { version = "0.1.4" }
 
 [dev-dependencies]

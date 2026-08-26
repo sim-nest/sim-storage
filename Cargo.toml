@@ -30,13 +30,5 @@ homepage = "https://github.com/sim-nest/sim-storage"
 unsafe_code = "forbid"
 
 [patch.crates-io]
-sim-cookbook = { path = "../sim-foundation/crates/sim-cookbook" }
-sim-cookbook-build = { path = "../sim-foundation/crates/sim-cookbook-build" }
-sim-codec = { path = "../sim-codecs/crates/sim-codec" }
-sim-codec-lisp = { path = "../sim-codecs/crates/sim-codec-lisp" }
-sim-lib-net-http = { path = "../sim-foundation/crates/sim-lib-net-http" }
-sim-lib-net-core = { path = "../sim-foundation/crates/sim-lib-net-core" }
-sim-kernel = { path = "../sim-kernel" }
 sim-table-db = { path = "crates/sim-table-db" }
 sim-table-sealed = { path = "crates/sim-table-sealed" }
-sim-test-support = { path = "../sim-codecs/crates/sim-test-support" }

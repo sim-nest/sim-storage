@@ -4,13 +4,19 @@
 
 | Package | Group | Features | Workspace feature edges |
 | --- | --- | ---: | ---: |
+| `sim-lib-journal` | `workspace` | 0 | 0 |
+| `sim-lib-relation-cli` | `workspace` | 0 | 0 |
 | `sim-list-cell` | `workspace` | 0 | 0 |
 | `sim-list-lazy` | `workspace` | 0 | 0 |
+| `sim-mutual-projection` | `workspace` | 0 | 0 |
+| `sim-relation-site` | `workspace` | 0 | 0 |
+| `sim-storage-port` | `workspace` | 0 | 0 |
 | `sim-table-db` | `workspace` | 0 | 0 |
-| `sim-table-fs` | `workspace` | 6 | 0 |
 | `sim-table-hash` | `workspace` | 0 | 0 |
 | `sim-table-http` | `workspace` | 2 | 0 |
 | `sim-table-lazy` | `workspace` | 0 | 0 |
 | `sim-table-mount` | `workspace` | 0 | 0 |
 | `sim-table-override` | `workspace` | 0 | 0 |
+| `sim-table-relation` | `workspace` | 0 | 0 |
+| `sim-table-sealed` | `workspace` | 0 | 0 |
 | `xtask` | `workspace` | 0 | 0 |

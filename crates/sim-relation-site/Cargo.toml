@@ -15,13 +15,13 @@ reason = "The bounded site specimen is checked in crate tests and rustdoc."
 
 [dependencies]
 sim-kernel = { version = "0.2.1" }
-sim-relation-core = { version = "0.1.0", path = "../../../sim-foundation/crates/sim-relation-core" }
-sim-relation-migrate = { version = "0.1.0", path = "../../../sim-foundation/crates/sim-relation-migrate" }
-sim-relation-plan = { version = "0.1.0", path = "../../../sim-foundation/crates/sim-relation-plan" }
+sim-relation-core = { version = "0.1.0" }
+sim-relation-migrate = { version = "0.1.0" }
+sim-relation-plan = { version = "0.1.0" }
 
 [dev-dependencies]
 sim-kernel = { version = "0.2.1", features = ["test-support"] }
-sim-relation-schema = { version = "0.1.0", path = "../../../sim-foundation/crates/sim-relation-schema" }
+sim-relation-schema = { version = "0.1.0" }
 
 [lints]
 workspace = true

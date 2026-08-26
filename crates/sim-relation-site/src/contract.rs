@@ -169,6 +169,34 @@ pub trait RowSink {
     fn push(&mut self, row: Row) -> Result<(), SiteError>;
 }
 
+/// In-memory row collector for callers that need a complete bounded result.
+///
+/// The relation site enforces row, cell, byte, and work limits before rows
+/// reach this sink, so collecting here does not create a second limit policy.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct VecRowSink {
+    rows: Vec<Row>,
+}
+
+impl VecRowSink {
+    /// Borrows the rows collected so far in provider order.
+    pub fn rows(&self) -> &[Row] {
+        &self.rows
+    }
+
+    /// Returns the collected rows in provider order.
+    pub fn into_rows(self) -> Vec<Row> {
+        self.rows
+    }
+}
+
+impl RowSink for VecRowSink {
+    fn push(&mut self, row: Row) -> Result<(), SiteError> {
+        self.rows.push(row);
+        Ok(())
+    }
+}
+
 /// Provider-reported bounded work and redaction-safe facts.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ProviderStats {

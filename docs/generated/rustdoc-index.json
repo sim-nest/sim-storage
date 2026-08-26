@@ -30,6 +30,13 @@
       "summary": "Lazy list backend for the SIM constellation."
     },
     {
+      "crate_name": "sim_mutual_projection",
+      "group": "workspace",
+      "manifest": "crates/sim-mutual-projection/Cargo.toml",
+      "package": "sim-mutual-projection",
+      "summary": "Bilateral, copied projections between mutually opaque archives."
+    },
+    {
       "crate_name": "sim_relation_site",
       "group": "workspace",
       "manifest": "crates/sim-relation-site/Cargo.toml",
@@ -91,6 +98,13 @@
       "manifest": "crates/sim-table-relation/Cargo.toml",
       "package": "sim-table-relation",
       "summary": "Relation-backed implementations of the standard Table and Dir contracts."
+    },
+    {
+      "crate_name": "sim_table_sealed",
+      "group": "workspace",
+      "manifest": "crates/sim-table-sealed/Cargo.toml",
+      "package": "sim-table-sealed",
+      "summary": "Authenticated-encryption decorator for any SIM Table or Dir backend."
     },
     {
       "crate_name": "xtask",

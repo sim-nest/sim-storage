@@ -1,2 +1,5 @@
+book = "table/relation"
 title = "Relation-backed Table/Dir"
+summary = "Expose checked relation providers through Table and Dir contracts."
+order = 10
 chapters = ["01-basics"]

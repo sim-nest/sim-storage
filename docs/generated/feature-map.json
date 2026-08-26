@@ -24,6 +24,11 @@
     {
       "features": [],
       "group": "workspace",
+      "package": "sim-mutual-projection"
+    },
+    {
+      "features": [],
+      "group": "workspace",
       "package": "sim-relation-site"
     },
     {
@@ -78,6 +83,11 @@
       "features": [],
       "group": "workspace",
       "package": "sim-table-relation"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-table-sealed"
     },
     {
       "features": [],
