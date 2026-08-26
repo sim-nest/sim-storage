@@ -1544,17 +1544,9 @@ fn mandatory_limits_and_bindings_fail_closed() {
         [Cell::new(domain, Some(Datum::String("bounded".into())))],
     )
     .unwrap();
-    let mut rows = Vec::new();
-    struct Collect<'a>(&'a mut Vec<Row>);
-    impl RowSink for Collect<'_> {
-        fn push(&mut self, row: Row) -> Result<(), SiteError> {
-            self.0.push(row);
-            Ok(())
-        }
-    }
     let limits = Limits::new(1, 1, 1_000, 1).unwrap();
     let mut counts = Counts::default();
-    let mut collect = Collect(&mut rows);
+    let mut collect = VecRowSink::default();
     let mut sink = BoundedSink {
         expected: &row_type,
         limits: &limits,
@@ -1563,10 +1555,10 @@ fn mandatory_limits_and_bindings_fail_closed() {
     };
     sink.push(row.clone()).unwrap();
     assert!(matches!(
-        sink.push(row),
+        sink.push(row.clone()),
         Err(SiteError::Limit(LimitKind::Rows))
     ));
-    assert_eq!(rows.len(), 1);
+    assert_eq!(collect.rows(), &[row]);
     assert!(matches!(
         enforce_work(&limits, 2),
         Err(SiteError::Limit(LimitKind::Work))
@@ -1887,17 +1879,9 @@ fn mandatory_limits_and_bindings_fail_closed() {
         [Cell::new(domain, Some(Datum::String("bounded".into())))],
     )
     .unwrap();
-    let mut rows = Vec::new();
-    struct Collect<'a>(&'a mut Vec<Row>);
-    impl RowSink for Collect<'_> {
-        fn push(&mut self, row: Row) -> Result<(), SiteError> {
-            self.0.push(row);
-            Ok(())
-        }
-    }
     let limits = Limits::new(1, 1, 1_000, 1).unwrap();
     let mut counts = Counts::default();
-    let mut collect = Collect(&mut rows);
+    let mut collect = VecRowSink::default();
     let mut sink = BoundedSink {
         expected: &row_type,
         limits: &limits,
@@ -1906,10 +1890,10 @@ fn mandatory_limits_and_bindings_fail_closed() {
     };
     sink.push(row.clone()).unwrap();
     assert!(matches!(
-        sink.push(row),
+        sink.push(row.clone()),
         Err(SiteError::Limit(LimitKind::Rows))
     ));
-    assert_eq!(rows.len(), 1);
+    assert_eq!(collect.rows(), &[row]);
     assert!(matches!(
         enforce_work(&limits, 2),
         Err(SiteError::Limit(LimitKind::Work))
