@@ -1,3 +1,5 @@
+// conformance: immutable journal objects and fenced heads replay exactly after reopen.
+
 use crate::*;
 use sim_kernel::{ContentId, Symbol};
 use sim_storage_port::{

@@ -1,3 +1,5 @@
+// conformance: relation-site registration and locator grammar remain closed and capability-bearing.
+
 //! Relation-site conformance: the recording driver proves the bounded host seam.
 
 use super::*;
@@ -255,31 +257,6 @@ fn mandatory_limits_and_bindings_fail_closed() {
     assert!(matches!(
         enforce_work(&limits, 2),
         Err(SiteError::Limit(LimitKind::Work))
-    ));
-}
-
-#[test]
-fn sqlite_registration_and_locator_grammar_fail_closed() {
-    let manifest = DriverManifest::sqlite(
-        Symbol::qualified("relation/site", "sqlite"),
-        Symbol::qualified("relation/provider", "sqlite"),
-    )
-    .unwrap();
-    assert_eq!(manifest.site, Symbol::qualified("relation/site", "sqlite"));
-    assert!(matches!(
-        DriverManifest::sqlite(Symbol::new("sqlite"), Symbol::new("sqlite")),
-        Err(SiteError::Registration)
-    ));
-    assert_eq!(
-        StorageLocator::from_datum(&Datum::Node {
-            tag: Symbol::qualified("relation", "memory"),
-            fields: vec![],
-        }),
-        Ok(StorageLocator::Memory)
-    );
-    assert!(matches!(
-        StorageLocator::from_datum(&Datum::String("/tmp/db".into())),
-        Err(SiteError::Locator)
     ));
 }
 

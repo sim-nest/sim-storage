@@ -70,4 +70,6 @@ impl sim_kernel::ObjectCompat for RelationSite {
 }
 
 #[cfg(test)]
+mod sqlite_locator_tests;
+#[cfg(test)]
 mod tests;

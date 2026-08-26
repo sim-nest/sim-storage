@@ -1,3 +1,5 @@
+// conformance: host-backed tables preserve capability checks and table semantics.
+
 use std::sync::Arc;
 
 use sim_kernel::{

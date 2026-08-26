@@ -1,3 +1,5 @@
+// conformance: the hash backend preserves absent, nil, delete, and atomic compare-exchange semantics.
+
 use std::sync::Arc;
 
 use sim_kernel::{

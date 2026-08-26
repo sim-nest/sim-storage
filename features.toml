@@ -23,6 +23,9 @@ guidance = "Compose this domain-free journal for durable facts. Bind HostDirPort
 claims_anchors = [
   "anchor/crate/sim-lib-journal",
 ]
+claims_specimens = [
+  "spec-test/sim-storage/crates/sim-lib-journal/src/tests",
+]
 
 [[feature]]
 id = "feature/sim-storage/mutual-copied-projection"
@@ -67,13 +70,13 @@ claims_anchors = [
   "anchor/crate/sim-table-hash",
   "anchor/crate/sim-table-lazy",
   "anchor/crate/sim-table-override",
-  "anchor/crate/sim-table-relation",
   "anchor/runtime-lib/sim-list-cell/cons-list-lib",
   "anchor/runtime-lib/sim-list-lazy/lazy-list-lib",
   "anchor/runtime-lib/sim-table-hash/hash-table-lib",
   "anchor/runtime-lib/sim-table-lazy/lazy-table-lib",
   "anchor/runtime-lib/sim-table-override/override-table-lib",
 ]
+claims_specimens = ["spec-test/sim-storage/crates/sim-table-hash/src/tests"]
 
 [[feature]]
 id = "feature/sim-storage/relation-table-dir-projection"
@@ -122,6 +125,7 @@ claims_anchors = [
   "anchor/crate/sim-storage-port",
   "anchor/crate/sim-table-http",
 ]
+claims_specimens = ["spec-test/sim-storage/crates/sim-table-db/src/tests"]
 
 [[feature]]
 id = "feature/sim-storage/bounded-relation-site"
@@ -132,6 +136,7 @@ audiences = ["code", "framework"]
 guidance = "Compose this site with relation plan and migration admission. Providers validate opaque locators internally and receive no text execution surface; callers receive typed pushed rows and redacted receipts."
 claims_anchors = [
   "anchor/crate/sim-relation-site",
+  "anchor/runtime-lib/sim-relation-site/relation-site-lib",
 ]
 claims_specimens = [
   "spec-test/sim-storage/crates/sim-relation-site/src/tests",
@@ -144,8 +149,7 @@ summary = "Admit only memory or capability-bearing preopened storage references 
 owner = "crate/sim-relation-site"
 audiences = ["code", "framework"]
 guidance = "Use StorageLocator and DriverManifest at the logical relation boundary. A selected platform capsule resolves preopened references and owns all driver values, paths, prepared text, and provider mechanics."
-claims_anchors = ["anchor/crate/sim-relation-site"]
-claims_specimens = ["spec-test/sim-storage/crates/sim-relation-site/src/tests"]
+claims_specimens = ["spec-test/sim-storage/crates/sim-relation-site/src/sqlite_locator_tests"]
 supports = ["feature/sim-storage/bounded-relation-site"]
 
 [[feature]]
@@ -172,6 +176,7 @@ guidance = "Load this library through sim relation. Compose provider sessions be
 claims_anchors = [
   "anchor/crate/sim-lib-relation-cli",
   "anchor/export/sim-lib-relation-cli/cli/main/relation",
+  "anchor/runtime-lib/sim-lib-relation-cli/relation-command-lib",
 ]
 claims_specimens = [
   "spec-test/sim-storage/crates/sim-lib-relation-cli/src/tests",
