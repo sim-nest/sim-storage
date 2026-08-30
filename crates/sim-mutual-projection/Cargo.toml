@@ -15,7 +15,7 @@ reason = "The complete synthetic-peer protocol specimen is checked as crate test
 
 [dependencies]
 sha2 = "0.10"
-sim-kernel = { version = "0.2.1" }
+sim-kernel = { version = "0.3.0" }
 thiserror = "2"
 
 [lints]

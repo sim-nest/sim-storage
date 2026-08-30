@@ -10,7 +10,7 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
-sim-kernel = { version = "0.2.1" }
+sim-kernel = { version = "0.3.0" }
 
 [lints]
 workspace = true

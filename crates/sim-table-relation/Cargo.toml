@@ -10,13 +10,13 @@ repository = "https://github.com/sim-nest/sim-storage"
 homepage = "https://github.com/sim-nest/sim-storage"
 
 [dependencies]
-sim-kernel = { version = "0.2.0" }
+sim-kernel = { version = "0.3.0" }
 sim-relation-core = { version = "0.1.0" }
 sim-relation-plan = { version = "0.1.0" }
-sim-table-core = { version = "0.1.4" }
+sim-table-core = { version = "0.2.0" }
 
 [dev-dependencies]
-sim-kernel = { version = "0.2.0", features = ["test-support"] }
+sim-kernel = { version = "0.3.0", features = ["test-support"] }
 
 [lints]
 workspace = true

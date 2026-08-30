@@ -15,7 +15,7 @@ reason = "The journal law and model interleavings are checked in crate tests and
 
 [dependencies]
 sha2 = "0.10"
-sim-kernel = { version = "0.2.1" }
+sim-kernel = { version = "0.3.0" }
 sim-storage-port = { version = "0.1.0", path = "../sim-storage-port" }
 thiserror = "2"
 
