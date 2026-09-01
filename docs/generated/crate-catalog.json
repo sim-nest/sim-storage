@@ -1,7 +1,31 @@
 {
   "generator": "xtask crate-catalog v1",
-  "package_count": 10,
+  "package_count": 16,
   "packages": [
+    {
+      "description": "Domain-free atomic content journal contract for SIM.",
+      "generated_readme": false,
+      "manifest": "crates/sim-lib-journal/Cargo.toml",
+      "name": "sim-lib-journal",
+      "publish": "true",
+      "readme": "crates/sim-lib-journal/README.md",
+      "root": "crates/sim-lib-journal",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "Loadable, checked relational command surface for SIM.",
+      "generated_readme": false,
+      "manifest": "crates/sim-lib-relation-cli/Cargo.toml",
+      "name": "sim-lib-relation-cli",
+      "publish": "true",
+      "readme": "crates/sim-lib-relation-cli/README.md",
+      "root": "crates/sim-lib-relation-cli",
+      "target_kinds": [
+        "lib"
+      ]
+    },
     {
       "description": "SIM workspace package for sim list cell.",
       "generated_readme": true,
@@ -27,6 +51,42 @@
       ]
     },
     {
+      "description": "Two-key copied projections without shared archive authority.",
+      "generated_readme": false,
+      "manifest": "crates/sim-mutual-projection/Cargo.toml",
+      "name": "sim-mutual-projection",
+      "publish": "true",
+      "readme": "crates/sim-mutual-projection/README.md",
+      "root": "crates/sim-mutual-projection",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "Bounded provider-neutral relation effect site for SIM.",
+      "generated_readme": false,
+      "manifest": "crates/sim-relation-site/Cargo.toml",
+      "name": "sim-relation-site",
+      "publish": "true",
+      "readme": "crates/sim-relation-site/README.md",
+      "root": "crates/sim-relation-site",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "Portable host-directory port contracts for SIM storage.",
+      "generated_readme": true,
+      "manifest": "crates/sim-storage-port/Cargo.toml",
+      "name": "sim-storage-port",
+      "publish": "true",
+      "readme": "crates/sim-storage-port/README.md",
+      "root": "crates/sim-storage-port",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
       "description": "SIM workspace package for sim table db.",
       "generated_readme": true,
       "manifest": "crates/sim-table-db/Cargo.toml",
@@ -35,19 +95,6 @@
       "readme": "crates/sim-table-db/README.md",
       "root": "crates/sim-table-db",
       "target_kinds": [
-        "lib"
-      ]
-    },
-    {
-      "description": "SIM workspace package for sim table fs.",
-      "generated_readme": true,
-      "manifest": "crates/sim-table-fs/Cargo.toml",
-      "name": "sim-table-fs",
-      "publish": "true",
-      "readme": "crates/sim-table-fs/README.md",
-      "root": "crates/sim-table-fs",
-      "target_kinds": [
-        "custom-build",
         "lib"
       ]
     },
@@ -109,6 +156,30 @@
       "publish": "true",
       "readme": "crates/sim-table-override/README.md",
       "root": "crates/sim-table-override",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "Relation-backed Table/Dir namespace and keyed read-only relation views for SIM.",
+      "generated_readme": false,
+      "manifest": "crates/sim-table-relation/Cargo.toml",
+      "name": "sim-table-relation",
+      "publish": "true",
+      "readme": "crates/sim-table-relation/README.md",
+      "root": "crates/sim-table-relation",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "Authenticated encryption decorator for SIM Table and Dir backends.",
+      "generated_readme": false,
+      "manifest": "crates/sim-table-sealed/Cargo.toml",
+      "name": "sim-table-sealed",
+      "publish": "true",
+      "readme": "crates/sim-table-sealed/README.md",
+      "root": "crates/sim-table-sealed",
       "target_kinds": [
         "lib"
       ]
