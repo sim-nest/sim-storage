@@ -94,7 +94,7 @@ pub(crate) fn validate_options(options: &HttpDirOptions) -> Result<()> {
     if options.base_url.trim().is_empty() {
         return Err(Error::Eval("table/http: base_url is empty".to_owned()));
     }
-    let _ = sim_lib_net_core::parse_url(options.base_url.trim())
+    let _ = sim_lib_net_http::Url::parse(options.base_url.trim())
         .map_err(|err| Error::Eval(format!("table/http: {err}")))?;
     Ok(())
 }

@@ -9,7 +9,8 @@ use std::{
 };
 
 use sim_kernel::{
-    Cx, Error, Expr, Object, ObjectEncode, ObjectEncoding, Result, Symbol, Value,
+    Cx, Error, Expr, Object, ObjectEncode, ObjectEncoding, Result, Symbol, TableCompareExchange,
+    TableExpected, TableObserved, TableReplacement, Value,
     id::CORE_TABLE_CLASS_ID,
     object::ClassRef,
     table::{Dir, Table},
@@ -277,6 +278,50 @@ impl Table for DbDir {
             .retain(|(path, _), _| *path != self.path);
         Ok(())
     }
+
+    fn compare_exchange(
+        &self,
+        cx: &mut Cx,
+        key: Symbol,
+        expected: TableExpected,
+        replacement: TableReplacement,
+    ) -> Result<TableCompareExchange> {
+        cx.require(&table_db_write_capability())?;
+        let replacement = match replacement {
+            TableReplacement::Delete => None,
+            TableReplacement::Value(v) => {
+                v.object().as_expr(cx)?;
+                Some(v)
+            }
+        };
+        let slot = (self.path.clone(), key.clone());
+        let mut store = self.lock()?;
+        if store.dirs.contains(&self.child_path(&key)?) {
+            return Err(Error::Eval(format!("table/db: {key} is a directory")));
+        }
+        let observed = match store.values.get(&slot) {
+            Some(v) => TableObserved::Value(v.object().as_expr(cx)?),
+            None => TableObserved::Absent,
+        };
+        let exchanged = matches!(
+            (&expected, &observed),
+            (TableExpected::Absent, TableObserved::Absent)
+        ) || matches!((&expected, &observed), (TableExpected::Value(a), TableObserved::Value(b)) if a == b);
+        if exchanged {
+            match replacement {
+                Some(v) => {
+                    store.values.insert(slot, v);
+                }
+                None => {
+                    store.values.remove(&slot);
+                }
+            }
+        }
+        Ok(TableCompareExchange {
+            exchanged,
+            observed,
+        })
+    }
 }
 
 impl Dir for DbDir {
@@ -357,7 +402,7 @@ impl Dir for DbDir {
 ///     table_db_write_capability,
 /// };
 ///
-/// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+/// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory), sim_kernel::HandleSeed::new(1));
 /// cx.grant(table_db_capability());
 /// cx.grant(table_db_read_capability());
 /// cx.grant(table_db_write_capability());

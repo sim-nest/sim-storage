@@ -24,7 +24,7 @@ use crate::OverrideTable;
 /// use sim_kernel::{Cx, DefaultFactory, Expr, NoopEvalPolicy, Symbol, Table};
 /// use sim_table_override::construct_override_table;
 ///
-/// let mut cx = Cx::new(Arc::new(NoopEvalPolicy), Arc::new(DefaultFactory));
+/// let mut cx = Cx::new(Arc::new(NoopEvalPolicy), Arc::new(DefaultFactory), sim_kernel::HandleSeed::new(1));
 /// let shadow = cx.factory().string("front".to_owned()).unwrap();
 /// let base = cx.factory().string("back".to_owned()).unwrap();
 /// let front = cx.new_table(vec![(Symbol::new("k"), shadow.clone())]).unwrap();

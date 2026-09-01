@@ -2,6 +2,20 @@
   "generator": "xtask repo-contract v1",
   "packages": [
     {
+      "crate_name": "sim_lib_journal",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-journal/Cargo.toml",
+      "package": "sim-lib-journal",
+      "summary": "Domain-free atomic journal behavior over content-addressed objects."
+    },
+    {
+      "crate_name": "sim_lib_relation_cli",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-relation-cli/Cargo.toml",
+      "package": "sim-lib-relation-cli",
+      "summary": "Loadable command surface for checked relational data."
+    },
+    {
       "crate_name": "sim_list_cell",
       "group": "workspace",
       "manifest": "crates/sim-list-cell/Cargo.toml",
@@ -16,18 +30,32 @@
       "summary": "Lazy list backend for the SIM constellation."
     },
     {
+      "crate_name": "sim_mutual_projection",
+      "group": "workspace",
+      "manifest": "crates/sim-mutual-projection/Cargo.toml",
+      "package": "sim-mutual-projection",
+      "summary": "Bilateral, copied projections between mutually opaque archives."
+    },
+    {
+      "crate_name": "sim_relation_site",
+      "group": "workspace",
+      "manifest": "crates/sim-relation-site/Cargo.toml",
+      "package": "sim-relation-site",
+      "summary": "Bounded, provider-neutral relation effects."
+    },
+    {
+      "crate_name": "sim_storage_port",
+      "group": "workspace",
+      "manifest": "crates/sim-storage-port/Cargo.toml",
+      "package": "sim-storage-port",
+      "summary": "Portable contracts between SIM's Table/Dir policy and host storage."
+    },
+    {
       "crate_name": "sim_table_db",
       "group": "workspace",
       "manifest": "crates/sim-table-db/Cargo.toml",
       "package": "sim-table-db",
       "summary": "Db-backed table backend for the SIM constellation."
-    },
-    {
-      "crate_name": "sim_table_fs",
-      "group": "workspace",
-      "manifest": "crates/sim-table-fs/Cargo.toml",
-      "package": "sim-table-fs",
-      "summary": "Filesystem-backed table store for SIM."
     },
     {
       "crate_name": "sim_table_hash",
@@ -63,6 +91,20 @@
       "manifest": "crates/sim-table-override/Cargo.toml",
       "package": "sim-table-override",
       "summary": "Override (overlay) table backend for the SIM constellation."
+    },
+    {
+      "crate_name": "sim_table_relation",
+      "group": "workspace",
+      "manifest": "crates/sim-table-relation/Cargo.toml",
+      "package": "sim-table-relation",
+      "summary": "Relation-backed implementations of the standard Table and Dir contracts."
+    },
+    {
+      "crate_name": "sim_table_sealed",
+      "group": "workspace",
+      "manifest": "crates/sim-table-sealed/Cargo.toml",
+      "package": "sim-table-sealed",
+      "summary": "Authenticated-encryption decorator for any SIM Table or Dir backend."
     },
     {
       "crate_name": "xtask",

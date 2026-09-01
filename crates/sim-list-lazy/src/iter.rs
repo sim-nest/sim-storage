@@ -159,7 +159,7 @@ impl IterState {
 /// use sim_kernel::{Cx, DefaultFactory, EagerPolicy, Factory, ListValue, LengthResult};
 /// use sim_list_lazy::LazyIterList;
 ///
-/// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+/// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory), sim_kernel::HandleSeed::new(1));
 ///
 /// // An empty iterator yields the empty list.
 /// let empty = LazyIterList::new(Box::new(std::iter::empty()));

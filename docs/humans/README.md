@@ -17,28 +17,29 @@ This generated lane consumes `docs/generated/sim-index-fragment.sx`. Global inde
 
 | Feature | Subject | Specimens | Summary |
 | --- | --- | ---: | --- |
-| `feature/sim-storage/table-dir-backends` | `crate/sim-table-hash` | 1 | Provide hash, lazy, override, mounted, and list-backed Table/Dir implementations for reusable storage libraries. |
+| `feature/sim-storage/atomic-content-journal` | `crate/sim-lib-journal` | 1 | Crash-durably publish immutable content and atomically advance one gapless, fenced journal head with bounded verified reopen and disposable read-only projections. |
+| `feature/sim-storage/mutual-copied-projection` | `crate/sim-mutual-projection` | 1 | Copy one Shape-admitted fact and provenance between opaque peer archives only after two independent acceptances, with expiry, revocation, and minimum tombstones. |
+| `feature/sim-storage/sealed-table-decorator` | `crate/sim-table-sealed` | 1 | Wrap Table/Dir storage with authenticated encryption and manage crash-safe, independently granted generations, wrapped-only backups, recovery, and bounded crypto-erasure evidence. |
+| `feature/sim-storage/table-dir-backends` | `crate/sim-table-hash` | 1 | Provide hash, database, mounted, and view Table/Dir implementations, with honest linearizable compare-exchange where the backend can establish one atomic boundary. |
+| `feature/sim-storage/relation-table-dir-projection` | `crate/sim-table-relation` | 2 | Project a D9 node relation as a transactional Table/Dir namespace and admitted uniquely keyed query results as deterministic read-only tables. |
 | `feature/sim-storage/mounted-table-dir-namespace` | `crate/sim-table-mount` | 1 | Compose multiple Table and Dir backends behind one mounted table dir namespace with explicit mount points. |
-| `feature/sim-storage/host-storage-primitives` | `crate/sim-table-fs` | 1 | Connect file, database, and HTTP storage crates to the shared Table and Dir backend shape. |
+| `feature/sim-storage/host-storage-primitives` | `crate/sim-storage-port` | 1 | Define the portable HostDirPort boundary used by Table/Dir policy, including byte-level compare-exchange at the platform-owned atomic publication boundary. |
+| `feature/sim-storage/bounded-relation-site` | `crate/sim-relation-site` | 1 | Realize sealed checked relational plans through a provider-neutral, capability-gated, bounded host effect seam. |
+| `feature/sim-storage/sqlite-relation-locator` | `crate/sim-relation-site` | 1 | Admit only memory or capability-bearing preopened storage references and one canonical SQLite provider registration without exposing native paths or SQL. |
 | `feature/sim-storage/contract-emitter` | `crate/xtask` | 0 | Emit generated repository contract and index fragments for storage crates. |
+| `feature/sim-storage/relation-command` | `crate/sim-lib-relation-cli` | 1 | Discover and operate loaded relational sites through named schemas, migrations, checked plans, explicit product authorization, and bounded Table/Dir output without a raw SQL escape hatch. |
 
 ## Surfaces
 
 | Surface | Kind | Subject |
 | --- | --- | --- |
+| `cli/relation` | `cli` | `crate/sim-lib-relation-cli` |
 | `cli/xtask` | `cli` | `crate/xtask` |
 | `docs/sim-storage/generated` | `docs` | `doc-set/sim-storage/generated` |
+| `site/sim-relation-site` | `site` | `crate/sim-relation-site` |
 
 ## Recipes
 
-- `crates/sim-table-fs/recipes/01-basics/chapter.toml`
-- `crates/sim-table-fs/recipes/01-basics/grep-tree/purpose.md`
-- `crates/sim-table-fs/recipes/01-basics/grep-tree/recipe.toml`
-- `crates/sim-table-fs/recipes/01-basics/grep-tree/setup.siml`
-- `crates/sim-table-fs/recipes/01-basics/read-edit-file/purpose.md`
-- `crates/sim-table-fs/recipes/01-basics/read-edit-file/recipe.toml`
-- `crates/sim-table-fs/recipes/01-basics/read-edit-file/setup.siml`
-- `crates/sim-table-fs/recipes/book.toml`
 - `crates/sim-table-http/recipes/01-basics/chapter.toml`
 - `crates/sim-table-http/recipes/01-basics/http-get/purpose.md`
 - `crates/sim-table-http/recipes/01-basics/http-get/recipe.toml`
@@ -49,10 +50,1418 @@ This generated lane consumes `docs/generated/sim-index-fragment.sx`. Global inde
 - `crates/sim-table-mount/recipes/01-basics/backend-composition/setup.siml`
 - `crates/sim-table-mount/recipes/01-basics/chapter.toml`
 - `crates/sim-table-mount/recipes/book.toml`
+- `crates/sim-table-relation/recipes/01-basics/chapter.toml`
+- `crates/sim-table-relation/recipes/01-basics/relational-mount/purpose.md`
+- `crates/sim-table-relation/recipes/01-basics/relational-mount/recipe.toml`
+- `crates/sim-table-relation/recipes/01-basics/relational-mount/setup.siml`
+- `crates/sim-table-relation/recipes/book.toml`
+- `crates/sim-table-sealed/recipes/01-basics/chapter.toml`
+- `crates/sim-table-sealed/recipes/01-basics/sealed-table-contract/purpose.md`
+- `crates/sim-table-sealed/recipes/01-basics/sealed-table-contract/recipe.toml`
+- `crates/sim-table-sealed/recipes/01-basics/sealed-table-contract/setup.siml`
+- `crates/sim-table-sealed/recipes/book.toml`
 
 ## Worked Examples
 
+### `feature/sim-storage/atomic-content-journal`
+
+Specimen `spec-test/sim-storage/crates/sim-lib-journal/src/tests` is checked by `cargo test`.
+
+Source `crates/sim-lib-journal/src/tests.rs`:
+
+```rust
+// conformance: immutable journal objects and fenced heads replay exactly after reopen.
+
+use crate::*;
+use sim_kernel::{ContentId, Symbol};
+use sim_storage_port::{
+    Cancellation, HostCompareExchange, HostDirError, HostDirErrorKind, HostDirPort, HostEntry,
+};
+use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Mutex};
+
+fn object(byte: u8) -> JournalObject {
+    JournalObject::from_bytes([byte])
+}
+fn entry(sequence: u64, previous: Option<ContentId>, object: &JournalObject) -> JournalEntry {
+    JournalEntry::new(
+        sequence,
+        previous,
+        Symbol::qualified("example", "fact"),
+        vec![object.id.clone()],
+    )
+}
+
+#[test]
+fn replay_survives_deleting_every_projection() {
+    let journal = Journal::new(MemoryBackend::new());
+    let lease = journal.acquire_lease().unwrap();
+    let a = object(1);
+    let first = entry(0, None, &a);
+    let head = journal
+        .publish(&lease, None, vec![a.clone()], vec![first.clone()])
+        .unwrap();
+    let b = object(2);
+    let second = entry(1, Some(head.entry.clone()), &b);
+    journal
+        .publish(&lease, Some(&head), vec![b], vec![second.clone()])
+        .unwrap();
+
+    let table = journal.table_projection().unwrap();
+    let dir = journal.dir_projection().unwrap();
+    assert!(!table.rows().is_empty());
+    assert!(!dir.journal().is_empty());
+    drop((table, dir)); // projections are disposable and carry no authority
+
+    assert_eq!(
+        journal.replay().unwrap().collect::<Vec<_>>(),
+        vec![first, second]
+    );
+    assert_eq!(journal.verify().unwrap().object_ids.len(), 2);
+}
+
+#[test]
+fn stale_fence_wrong_previous_gap_and_missing_payload_are_rejected() {
+    let journal = Journal::new(MemoryBackend::new());
+    let stale = journal.acquire_lease().unwrap();
+    let live = journal.acquire_lease().unwrap();
+    let a = object(1);
+    let first = entry(0, None, &a);
+    assert_eq!(
+        journal.publish(&stale, None, vec![a.clone()], vec![first.clone()]),
+        Err(JournalError::StaleLease)
+    );
+    let head = journal.publish(&live, None, vec![a], vec![first]).unwrap();
+    let b = object(2);
+    assert_eq!(
+        journal.publish(
+            &live,
+            Some(&head),
+            vec![b.clone()],
+            vec![entry(3, Some(head.entry.clone()), &b)]
+        ),
+        Err(JournalError::SequenceGap)
+    );
+    assert_eq!(
+        journal.publish(
+            &live,
+            Some(&head),
+            vec![b.clone()],
+            vec![entry(1, None, &b)]
+        ),
+        Err(JournalError::WrongPrevious)
+    );
+    let missing = object(9);
+    assert!(matches!(
+        journal.publish(
+            &live,
+            Some(&head),
+            vec![],
+            vec![entry(1, Some(head.entry.clone()), &missing)]
+        ),
+        Err(JournalError::MissingPayload(_))
+    ));
+}
+
+#[test]
+fn corrupt_bytes_and_conflicting_content_are_rejected() {
+    let journal = Journal::new(MemoryBackend::new());
+    let lease = journal.acquire_lease().unwrap();
+    let good = object(1);
+    let corrupt = JournalObject {
+        id: good.id.clone(),
+        bytes: vec![2],
+    };
+    let first = entry(0, None, &good);
+    assert!(matches!(
+        journal.publish(&lease, None, vec![corrupt], vec![first]),
+        Err(JournalError::CorruptObject(_))
+    ));
+}
+
+#[test]
+fn exact_batch_redelivery_is_idempotent_but_conflict_is_not() {
+    let backend = Arc::new(MemoryBackend::new());
+    let journal = Journal::new(backend.clone());
+    let lease = journal.acquire_lease().unwrap();
+    let a = object(1);
+    let first = entry(0, None, &a);
+    let head = journal
+        .publish(&lease, None, vec![a.clone()], vec![first.clone()])
+        .unwrap();
+
+    // Redelivery arrives with its original expected head after acknowledgement
+    // loss. The backend recognizes the exact committed batch as a no-op.
+    let admission = Admission {
+        fence: lease.fence(),
+        expected: None,
+        objects: vec![a],
+        entries: vec![first.clone()],
+    };
+    assert_eq!(backend.admit(admission).unwrap(), head);
+    let mut conflict = first;
+    conflict.kind = Symbol::qualified("example", "different");
+    let admission = Admission {
+        fence: lease.fence(),
+        expected: None,
+        objects: vec![],
+        entries: vec![conflict],
+    };
+    assert_eq!(
+        backend.admit(admission),
+        Err(JournalError::ConflictingDelivery)
+    );
+
+    let conflicting = JournalEntry::new(0, None, Symbol::qualified("example", "different"), vec![]);
+    assert_eq!(
+        journal.publish(&lease, None, vec![], vec![conflicting]),
+        Err(JournalError::ConflictingDelivery)
+    );
+}
+
+#[test]
+fn atomic_batch_is_all_or_nothing() {
+    let journal = Journal::new(MemoryBackend::new());
+    let lease = journal.acquire_lease().unwrap();
+    let a = object(1);
+    let first = entry(0, None, &a);
+    let b = object(2);
+    let bad = entry(2, Some(first.id.clone()), &b);
+    assert_eq!(
+        journal.publish(&lease, None, vec![a, b], vec![first, bad]),
+        Err(JournalError::SequenceGap)
+    );
+    assert_eq!(journal.head().unwrap(), None);
+    assert!(journal.verify().unwrap().object_ids.is_empty());
+}
+
+#[test]
+fn every_short_two_writer_interleaving_has_one_sequence_zero_winner() {
+    // Explore all schedules of acquire/publish for two coordinators. A lease
+    // acquisition invalidates older generations; no schedule admits two
+    // different entries at sequence zero.
+    for schedule in [
+        [0, 1, 2, 3],
+        [0, 2, 1, 3],
+        [0, 2, 3, 1],
+        [2, 0, 1, 3],
+        [2, 0, 3, 1],
+        [2, 3, 0, 1],
+    ] {
+        let backend = Arc::new(MemoryBackend::new());
+        let mut leases = [None, None];
+        let objects = [object(1), object(2)];
+        let mut accepted = Vec::new();
+        for op in schedule {
+            let writer = op / 2;
+            if op % 2 == 0 {
+                leases[writer] = Some(backend.acquire_lease().unwrap());
+            } else if let Some(lease) = &leases[writer] {
+                let candidate = entry(0, None, &objects[writer]);
+                if backend
+                    .admit(Admission {
+                        fence: lease.fence(),
+                        expected: None,
+                        objects: vec![objects[writer].clone()],
+                        entries: vec![candidate.clone()],
+                    })
+                    .is_ok()
+                {
+                    accepted.push(candidate.id);
+                }
+            }
+        }
+        accepted.sort();
+        accepted.dedup();
+        assert!(
+            accepted.len() <= 1,
+            "schedule {schedule:?} accepted two identities"
+        );
+    }
+}
+
+#[derive(Default)]
+struct TestPort {
+    files: Mutex<BTreeMap<Vec<String>, Vec<u8>>>,
+}
+impl TestPort {
+    fn corrupt_one_byte(&self) {
+        let mut files = self.files.lock().unwrap();
+        let value = files
+            .iter_mut()
+            .find(|(p, _)| p.first().is_some_and(|v| v == "objects"))
+            .unwrap()
+            .1;
+        value[0] ^= 1;
+    }
+}
+impl HostDirPort for TestPort {
+    fn label(&self) -> &str {
+        "test"
+    }
+    fn list(&self, _: &[String]) -> Result<Vec<HostEntry>, HostDirError> {
+        Ok(vec![])
+    }
+    fn metadata(&self, path: &[String]) -> Result<Option<HostEntry>, HostDirError> {
+        Ok(self.files.lock().unwrap().get(path).map(|v| HostEntry {
+            name: path.last().unwrap().clone(),
+            kind: sim_storage_port::HostEntryKind::File,
+            len: v.len() as u64,
+        }))
+    }
+    fn read(&self, path: &[String]) -> Result<Vec<u8>, HostDirError> {
+        self.files
+            .lock()
+            .unwrap()
+            .get(path)
+            .cloned()
+            .ok_or_else(|| HostDirError::new(HostDirErrorKind::NotFound, "absent"))
+    }
+    fn replace(
+        &self,
+        path: &[String],
+        bytes: &[u8],
+        _: &dyn Cancellation,
+    ) -> Result<(), HostDirError> {
+        self.files
+            .lock()
+            .unwrap()
+            .insert(path.to_vec(), bytes.to_vec());
+        Ok(())
+    }
+    fn compare_exchange(
+        &self,
+        path: &[String],
+        expected: Option<&[u8]>,
+        replacement: Option<&[u8]>,
+        _: &dyn Cancellation,
+    ) -> Result<HostCompareExchange, HostDirError> {
+        let mut files = self.files.lock().unwrap();
+        let observed = files.get(path).cloned();
+        let exchanged = observed.as_deref() == expected;
+        if exchanged {
+            match replacement {
+                Some(v) => {
+                    files.insert(path.to_vec(), v.to_vec());
+                }
+                None => {
+                    files.remove(path);
+                }
+            }
+        }
+        Ok(HostCompareExchange {
+            exchanged,
+            observed,
+        })
+    }
+    fn remove_file(&self, path: &[String]) -> Result<(), HostDirError> {
+        self.files.lock().unwrap().remove(path);
+        Ok(())
+    }
+    fn create_dir(&self, _: &[String]) -> Result<(), HostDirError> {
+        Ok(())
+    }
+    fn remove_dir_all(&self, _: &[String]) -> Result<(), HostDirError> {
+        Ok(())
+    }
+    fn child(&self, _: &str) -> Result<Arc<dyn HostDirPort>, HostDirError> {
+        Err(HostDirError::new(HostDirErrorKind::Unsupported, "unused"))
+    }
+}
+
+fn capabilities() -> BackendCapabilities {
+    BackendCapabilities {
+        linearizable_cas: true,
+        durable_publish: true,
+    }
+}
+
+#[test]
+fn host_backend_refuses_unsafe_writes_and_read_open_is_bounded() {
+    let port = Arc::new(TestPort::default());
+    let unsafe_backend = HostDirJournalBackend::open(
+        port.clone(),
+        BackendCapabilities {
+            linearizable_cas: false,
+            durable_publish: true,
+        },
+        10,
+    )
+    .unwrap();
+    assert!(matches!(
+        unsafe_backend.acquire_lease(),
+        Err(JournalError::WriteRefused(_))
+    ));
+    assert!(matches!(
+        HostDirJournalBackend::open(port, capabilities(), 0),
+        Err(JournalError::WorkBoundExceeded)
+    ));
+}
+
+#[test]
+fn host_failpoints_reopen_to_old_or_new_head_and_verify_content() {
+    for point in [
+        Failpoint::BeforeObjectPublish,
+        Failpoint::AfterObjectPublish,
+        Failpoint::AfterDurabilityReceipt,
+        Failpoint::BeforeCas,
+        Failpoint::AfterCas,
+        Failpoint::BeforeAcknowledgement,
+    ] {
+        let port = Arc::new(TestPort::default());
+        let backend = HostDirJournalBackend::open(port.clone(), capabilities(), 20).unwrap();
+        let lease = backend.acquire_lease().unwrap();
+        let crashing = Journal::new(backend.with_failpoint_hook(move |seen| seen == point));
+        let payload = object(7);
+        let fact = entry(0, None, &payload);
+        assert!(matches!(
+            crashing.publish(&lease, None, vec![payload], vec![fact]),
+            Err(JournalError::InjectedCrash(_))
+        ));
+        let reopened = Journal::new(HostDirJournalBackend::open(port, capabilities(), 20).unwrap());
+        let head = reopened.head().unwrap();
+        if matches!(
+            point,
+            Failpoint::AfterCas | Failpoint::BeforeAcknowledgement
+        ) {
+            assert!(head.is_some());
+            assert_eq!(reopened.verify().unwrap().entries.len(), 1)
+        } else {
+            assert!(head.is_none())
+        }
+    }
+}
+
+#[test]
+fn host_put_if_absent_contention_projection_and_corruption_laws() {
+    let port = Arc::new(TestPort::default());
+    let a = HostDirJournalBackend::open(port.clone(), capabilities(), 20).unwrap();
+    let b = HostDirJournalBackend::open(port.clone(), capabilities(), 20).unwrap();
+    let lease_a = a.acquire_lease().unwrap();
+    let lease_b = b.acquire_lease().unwrap();
+    let one = object(1);
+    let two = object(2);
+    assert_eq!(
+        a.admit(Admission {
+            fence: lease_a.fence(),
+            expected: None,
+            objects: vec![one.clone()],
+            entries: vec![entry(0, None, &one)]
+        }),
+        Err(JournalError::StaleLease)
+    );
+    b.admit(Admission {
+        fence: lease_b.fence(),
+        expected: None,
+        objects: vec![two.clone()],
+        entries: vec![entry(0, None, &two)],
+    })
+    .unwrap();
+    let reopened =
+        Journal::new(HostDirJournalBackend::open(port.clone(), capabilities(), 20).unwrap());
+    assert!(!reopened.table_projection().unwrap().rows().is_empty());
+    assert!(!reopened.dir_projection().unwrap().journal().is_empty());
+    port.corrupt_one_byte();
+    assert!(HostDirJournalBackend::open(port, capabilities(), 20).is_err());
+}
+```
+
+### `feature/sim-storage/mutual-copied-projection`
+
+Specimen `spec-test/sim-storage/crates/sim-mutual-projection/src/tests` is checked by `cargo test`.
+
+Source `crates/sim-mutual-projection/src/tests.rs`:
+
+```rust
+use super::*;
+use sha2::{Digest, Sha256};
+use std::{
+    collections::BTreeMap,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+};
+
+#[derive(Clone)]
+struct TestClock(Arc<AtomicU64>);
+impl Clock for TestClock {
+    fn now(&self) -> u64 {
+        self.0.load(Ordering::SeqCst)
+    }
+}
+impl TestClock {
+    fn set(&self, value: u64) {
+        self.0.store(value, Ordering::SeqCst);
+    }
+}
+
+struct SyntheticKeys(BTreeMap<KeyId, Vec<u8>>);
+impl SyntheticKeys {
+    fn proof(&self, key: &str, message: &[u8]) -> Vec<u8> {
+        let mut hash = Sha256::new();
+        hash.update(self.0.get(key).unwrap());
+        hash.update(message);
+        hash.finalize().to_vec()
+    }
+}
+impl KeyVerifier for SyntheticKeys {
+    fn verify(&self, key: &KeyId, message: &[u8], proof: &[u8]) -> bool {
+        self.0.get(key).is_some_and(|secret| {
+            let mut hash = Sha256::new();
+            hash.update(secret);
+            hash.update(message);
+            hash.finalize().as_slice() == proof
+        })
+    }
+}
+
+fn fixture() -> (
+    MutualPorch<SyntheticKeys, TestClock>,
+    TestClock,
+    Offer,
+    Fact,
+) {
+    let clock = TestClock(Arc::new(AtomicU64::new(10)));
+    let keys = SyntheticKeys(BTreeMap::from([
+        ("mia-key".into(), b"mia-only".to_vec()),
+        ("bo-key".into(), b"bo-only".to_vec()),
+    ]));
+    let provenance = vec![ProvenanceLink {
+        relation: "observed-in".into(),
+        content: sim_kernel::ContentId::from_bytes(sim_kernel::Symbol::new("synthetic"), [7; 32]),
+    }];
+    let fact = Fact::synthetic(
+        BTreeMap::from([
+            ("chosen".into(), b"porch".to_vec()),
+            ("sibling".into(), b"private".to_vec()),
+            ("adjacent-claim".into(), b"private".to_vec()),
+        ]),
+        provenance,
+    );
+    let offer = Offer::new(
+        "Mia".into(),
+        "Bo".into(),
+        "mia-key".into(),
+        "bo-key".into(),
+        fact.id.clone(),
+        FieldShape::new(["chosen".into()]).unwrap(),
+        20,
+    );
+    (MutualPorch::new(keys, clock.clone()), clock, offer, fact)
+}
+fn acceptance(
+    porch: &MutualPorch<SyntheticKeys, TestClock>,
+    offer: &Offer,
+    party: &str,
+    key: &str,
+) -> Acceptance {
+    let _ = porch;
+    let keys = SyntheticKeys(BTreeMap::from([
+        ("mia-key".into(), b"mia-only".to_vec()),
+        ("bo-key".into(), b"bo-only".to_vec()),
+    ]));
+    Acceptance {
+        offer: offer.id.clone(),
+        party: party.into(),
+        key: key.into(),
+        proof: keys.proof(key, &offer.acceptance_message()),
+    }
+}
+
+#[test]
+fn two_independent_keys_admit_only_the_fixed_projection() {
+    let (porch, _, offer, fact) = fixture();
+    porch.invite(offer.clone()).unwrap();
+    assert_eq!(
+        porch.deliver(&offer.id, &fact),
+        Err(PorchError::MissingAcceptance)
+    );
+    porch
+        .accept(acceptance(&porch, &offer, "Mia", "mia-key"))
+        .unwrap();
+    assert_eq!(
+        porch.deliver(&offer.id, &fact),
+        Err(PorchError::MissingAcceptance)
+    );
+    let keys = SyntheticKeys(BTreeMap::from([("mia-key".into(), b"mia-only".to_vec())]));
+    let forged = Acceptance {
+        offer: offer.id.clone(),
+        party: "Bo".into(),
+        key: "bo-key".into(),
+        proof: keys.proof("mia-key", &offer.acceptance_message()),
+    };
+    assert_eq!(porch.accept(forged), Err(PorchError::InvalidProof));
+    porch
+        .accept(acceptance(&porch, &offer, "Bo", "bo-key"))
+        .unwrap();
+    let receipt = porch.deliver(&offer.id, &fact).unwrap();
+    assert_eq!(porch.deliver(&offer.id, &fact).unwrap(), receipt);
+    let copy = porch.read(&offer.id).unwrap();
+    assert_eq!(
+        copy.fields,
+        BTreeMap::from([("chosen".into(), b"porch".to_vec())])
+    );
+    assert_eq!(copy.provenance, fact.provenance);
+}
+
+#[test]
+fn receiver_cannot_widen_offer_or_substitute_fact() {
+    let (porch, _, offer, fact) = fixture();
+    porch.invite(offer.clone()).unwrap();
+    porch
+        .accept(acceptance(&porch, &offer, "Mia", "mia-key"))
+        .unwrap();
+    porch
+        .accept(acceptance(&porch, &offer, "Bo", "bo-key"))
+        .unwrap();
+    let widened = Offer::new(
+        offer.inviter.clone(),
+        offer.recipient.clone(),
+        offer.inviter_key.clone(),
+        offer.recipient_key.clone(),
+        fact.id.clone(),
+        FieldShape::new(["chosen".into(), "sibling".into()]).unwrap(),
+        offer.expires_at,
+    );
+    assert_eq!(
+        porch.deliver(&widened.id, &fact),
+        Err(PorchError::UnknownOffer)
+    );
+    let other = Fact::synthetic(
+        BTreeMap::from([("chosen".into(), b"other".to_vec())]),
+        vec![],
+    );
+    assert_eq!(porch.deliver(&offer.id, &other), Err(PorchError::WrongFact));
+}
+
+#[test]
+fn refusal_silence_expiry_and_revocation_reveal_no_payload() {
+    let (porch, clock, offer, _fact) = fixture();
+    porch.invite(offer.clone()).unwrap();
+    assert_eq!(porch.read(&offer.id), Err(PorchError::MissingAcceptance));
+    porch.refuse(&offer.id, "Bo").unwrap();
+    assert_eq!(porch.read(&offer.id), Err(PorchError::Inactive));
+    let (porch, clock2, offer, fact) = fixture();
+    porch.invite(offer.clone()).unwrap();
+    porch
+        .accept(acceptance(&porch, &offer, "Mia", "mia-key"))
+        .unwrap();
+    porch
+        .accept(acceptance(&porch, &offer, "Bo", "bo-key"))
+        .unwrap();
+    porch.deliver(&offer.id, &fact).unwrap();
+    clock2.set(20);
+    assert_eq!(porch.read(&offer.id), Err(PorchError::Inactive));
+    assert!(
+        matches!(porch.audit().last(), Some(AuditEvent::Ended(Tombstone { reason, .. })) if reason == "expired")
+    );
+    clock.set(30);
+    drop(_fact);
+}
+
+#[test]
+fn concurrent_revoke_is_idempotent_and_removes_the_copy() {
+    let (porch, _, offer, fact) = fixture();
+    let porch = Arc::new(porch);
+    porch.invite(offer.clone()).unwrap();
+    porch
+        .accept(acceptance(&porch, &offer, "Mia", "mia-key"))
+        .unwrap();
+    porch
+        .accept(acceptance(&porch, &offer, "Bo", "bo-key"))
+        .unwrap();
+    porch.deliver(&offer.id, &fact).unwrap();
+    let a = Arc::clone(&porch);
+    let id = offer.id.clone();
+    let left = std::thread::spawn(move || a.revoke(&id, "Mia"));
+    let b = Arc::clone(&porch);
+    let id = offer.id.clone();
+    let right = std::thread::spawn(move || b.revoke(&id, "Bo"));
+    assert_eq!(
+        left.join().unwrap().unwrap(),
+        right.join().unwrap().unwrap()
+    );
+    assert_eq!(porch.read(&offer.id), Err(PorchError::Inactive));
+    assert_eq!(
+        porch
+            .audit()
+            .iter()
+            .filter(|event| matches!(event, AuditEvent::Ended(_)))
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn partial_failure_publishes_nothing_and_independent_restore_redelivers() {
+    let (porch, _, offer, fact) = fixture();
+    porch.invite(offer.clone()).unwrap();
+    porch
+        .accept(acceptance(&porch, &offer, "Mia", "mia-key"))
+        .unwrap();
+    porch
+        .accept(acceptance(&porch, &offer, "Bo", "bo-key"))
+        .unwrap();
+    assert_eq!(
+        porch.deliver_with_failure_for_test(&offer.id, &fact),
+        Err(PorchError::DeliveryFailed)
+    );
+    assert_eq!(porch.read(&offer.id), Err(PorchError::MissingAcceptance));
+    let receipt = porch.deliver(&offer.id, &fact).unwrap();
+    let restored = porch.read(&offer.id).unwrap();
+    assert_eq!(receipt.copied, super::model::copied_id(&restored));
+}
+// conformance: mutual-projection tests prove deterministic reconciliation and refusal semantics.
+```
+
+### `feature/sim-storage/sealed-table-decorator`
+
+Specimen `spec-test/sim-storage/crates/sim-table-sealed/src/tests` is checked by `cargo test`.
+
+Source `crates/sim-table-sealed/src/tests.rs`:
+
+```rust
+// conformance: sealed authenticated Table/Dir decorator and fail-closed bindings.
+
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex},
+};
+
+use sim_kernel::{Cx, Expr, Symbol, Value, testing::bare_cx};
+use sim_table_db::{
+    install_db_dir_lib, table_db_capability, table_db_mkdir_capability, table_db_read_capability,
+    table_db_rmdir_capability, table_db_write_capability,
+};
+
+use crate::{
+    NONCE_LEN, NonceSource, SealedConfig, SealedError, SealedObject, SealedTable, SecretKey,
+    blind::blind_key,
+};
+
+struct Keys(Mutex<Option<[u8; 32]>>);
+
+impl Keys {
+    fn new(key: [u8; 32]) -> Self {
+        Self(Mutex::new(Some(key)))
+    }
+    fn replace(&self, key: Option<[u8; 32]>) {
+        *self.0.lock().unwrap() = key;
+    }
+}
+
+impl crate::KeyProvider for Keys {
+    fn key(&self, _grant: &str) -> Option<SecretKey> {
+        self.0
+            .lock()
+            .unwrap()
+            .map(|key| SecretKey::new(format!("key-{}", key[0]), key, key.map(|byte| byte ^ 0xa5)))
+    }
+}
+
+struct Nonces(Mutex<VecDeque<[u8; NONCE_LEN]>>);
+
+impl Nonces {
+    fn new(nonces: impl IntoIterator<Item = [u8; NONCE_LEN]>) -> Self {
+        Self(Mutex::new(nonces.into_iter().collect()))
+    }
+}
+
+impl NonceSource for Nonces {
+    fn fill(&self, nonce: &mut [u8; NONCE_LEN]) -> Result<(), SealedError> {
+        *nonce = self
+            .0
+            .lock()
+            .unwrap()
+            .pop_front()
+            .ok_or(SealedError::NonceBudgetExhausted)?;
+        Ok(())
+    }
+}
+
+fn config(keys: Arc<Keys>, nonces: Arc<Nonces>, lane: &[u8], generation: u64) -> SealedConfig {
+    SealedConfig {
+        grant: "grant-7".into(),
+        key_id: format!("key-{}", keys.0.lock().unwrap().unwrap()[0]),
+        lane: lane.to_vec(),
+        generation,
+        max_plaintext_bytes: 4096,
+        max_object_bytes: 8192,
+        metadata_class: "portable-expression".into(),
+        nonce_budget: 32,
+        keys,
+        nonces,
+    }
+}
+
+fn wrap(cx: &Cx, backend: Value, config: SealedConfig) -> Value {
+    cx.factory()
+        .opaque(Arc::new(SealedTable::new(backend, config).unwrap()))
+        .unwrap()
+}
+
+fn raw(backend: &Value, cx: &mut Cx, physical: &str) -> Vec<u8> {
+    let value = backend
+        .object()
+        .as_table_impl()
+        .unwrap()
+        .get(cx, Symbol::new(physical))
+        .unwrap();
+    let Expr::Bytes(bytes) = value.object().as_expr(cx).unwrap() else {
+        panic!("expected bytes")
+    };
+    bytes
+}
+
+fn physical(key: &[u8; 32], lane: &[u8], logical: &str) -> String {
+    let blinding = key.map(|byte| byte ^ 0xa5);
+    format!(
+        "{}-{}",
+        crate::blind::blind_lane(&blinding, lane),
+        blind_key(&blinding, lane, logical)
+    )
+}
+
+fn assert_auth_failure(result: sim_kernel::Result<Value>) {
+    let text = result.unwrap_err().to_string();
+    assert!(text.contains("authentication failed"), "{text}");
+}
+
+#[test]
+fn round_trip_blinds_names_and_preserves_table_contract() {
+    let mut cx = bare_cx();
+    let backend = cx.new_table(vec![]).unwrap();
+    let key = [11; 32];
+    let sealed = wrap(
+        &cx,
+        backend.clone(),
+        config(
+            Arc::new(Keys::new(key)),
+            Arc::new(Nonces::new([[1; NONCE_LEN]])),
+            b"finance",
+            3,
+        ),
+    );
+    let table = sealed.object().as_table_impl().unwrap();
+    let private = cx.factory().string("private".into()).unwrap();
+    table.set(&mut cx, Symbol::new("balance"), private).unwrap();
+
+    assert_eq!(table.keys(&mut cx).unwrap(), vec![Symbol::new("balance")]);
+    assert_eq!(
+        table
+            .get(&mut cx, Symbol::new("balance"))
+            .unwrap()
+            .object()
+            .as_expr(&mut cx)
+            .unwrap(),
+        Expr::String("private".into())
+    );
+    let backend_keys = backend
+        .object()
+        .as_table_impl()
+        .unwrap()
+        .keys(&mut cx)
+        .unwrap();
+    assert_eq!(
+        backend_keys,
+        vec![Symbol::new(physical(&key, b"finance", "balance"))]
+    );
+    assert!(!backend_keys[0].name.contains("balance"));
+}
+
+#[test]
+fn wrong_key_revoked_grant_and_repeated_nonce_are_refused_without_secret_diagnostics() {
+    let mut cx = bare_cx();
+    let backend = cx.new_table(vec![]).unwrap();
+    let keys = Arc::new(Keys::new([21; 32]));
+    let sealed = wrap(
+        &cx,
+        backend,
+        config(
+            keys.clone(),
+            Arc::new(Nonces::new([[2; NONCE_LEN], [2; NONCE_LEN]])),
+            b"private",
+            1,
+        ),
+    );
+    let table = sealed.object().as_table_impl().unwrap();
+    let yes = cx.factory().bool(true).unwrap();
+    table.set(&mut cx, Symbol::new("a"), yes).unwrap();
+    let no = cx.factory().bool(false).unwrap();
+    let repeated = table
+        .set(&mut cx, Symbol::new("b"), no)
+        .unwrap_err()
+        .to_string();
+    assert!(repeated.contains("nonce reuse refused"));
+
+    keys.replace(Some([22; 32]));
+    let wrong_key = table.keys(&mut cx).unwrap_err().to_string();
+    assert!(wrong_key.contains("authentication failed"));
+    keys.replace(None);
+    let revoked = table
+        .get(&mut cx, Symbol::new("a"))
+        .unwrap_err()
+        .to_string();
+    assert!(revoked.contains("grant unavailable"));
+    assert!(!revoked.contains("21"));
+}
+
+#[test]
+fn moved_generation_metadata_tamper_and_swapped_ciphertext_fail_closed() {
+    let mut cx = bare_cx();
+    let backend = cx.new_table(vec![]).unwrap();
+    let key = [31; 32];
+    let keys = Arc::new(Keys::new(key));
+    let sealed = wrap(
+        &cx,
+        backend.clone(),
+        config(
+            keys.clone(),
+            Arc::new(Nonces::new([[3; NONCE_LEN], [4; NONCE_LEN]])),
+            b"lane-a",
+            8,
+        ),
+    );
+    let table = sealed.object().as_table_impl().unwrap();
+    let one = cx.factory().string("one".into()).unwrap();
+    table.set(&mut cx, Symbol::new("a"), one).unwrap();
+    let two = cx.factory().string("two".into()).unwrap();
+    table.set(&mut cx, Symbol::new("b"), two).unwrap();
+
+    let lane_a_physical = physical(&key, b"lane-a", "a");
+    let lane_b_physical = physical(&key, b"lane-b", "a");
+    let moved_bytes = raw(&backend, &mut cx, &lane_a_physical);
+    let moved_value = cx.factory().bytes(moved_bytes).unwrap();
+    backend
+        .object()
+        .as_table_impl()
+        .unwrap()
+        .set(&mut cx, Symbol::new(lane_b_physical), moved_value)
+        .unwrap();
+    let moved_lane = wrap(
+        &cx,
+        backend.clone(),
+        config(keys.clone(), Arc::new(Nonces::new([])), b"lane-b", 8),
+    );
+    assert_auth_failure(
+        moved_lane
+            .object()
+            .as_table_impl()
+            .unwrap()
+            .get(&mut cx, Symbol::new("a")),
+    );
+    let moved_generation = wrap(
+        &cx,
+        backend.clone(),
+        config(keys.clone(), Arc::new(Nonces::new([])), b"lane-a", 9),
+    );
+    assert_auth_failure(
+        moved_generation
+            .object()
+            .as_table_impl()
+            .unwrap()
+            .get(&mut cx, Symbol::new("a")),
+    );
+    let mut metadata_config = config(keys, Arc::new(Nonces::new([])), b"lane-a", 8);
+    metadata_config.metadata_class = "other-class".into();
+    let moved_metadata = wrap(&cx, backend.clone(), metadata_config);
+    assert_auth_failure(
+        moved_metadata
+            .object()
+            .as_table_impl()
+            .unwrap()
+            .get(&mut cx, Symbol::new("a")),
+    );
+
+    let pa = physical(&key, b"lane-a", "a");
+    let pb = physical(&key, b"lane-a", "b");
+    let a_bytes = raw(&backend, &mut cx, &pa);
+    let b_bytes = raw(&backend, &mut cx, &pb);
+    let backend_table = backend.object().as_table_impl().unwrap();
+    let b_value = cx.factory().bytes(b_bytes).unwrap();
+    backend_table
+        .set(&mut cx, Symbol::new(pa.as_str()), b_value)
+        .unwrap();
+    let a_value = cx.factory().bytes(a_bytes).unwrap();
+    backend_table
+        .set(&mut cx, Symbol::new(pb.as_str()), a_value)
+        .unwrap();
+    assert_auth_failure(table.get(&mut cx, Symbol::new("a")));
+    assert_auth_failure(table.get(&mut cx, Symbol::new("b")));
+}
+
+#[test]
+fn forged_header_corruption_and_oversized_objects_are_refused_while_other_lane_is_stable() {
+    let mut cx = bare_cx();
+    let backend = cx.new_table(vec![]).unwrap();
+    let key = [41; 32];
+    let keys = Arc::new(Keys::new(key));
+    let lane_a = wrap(
+        &cx,
+        backend.clone(),
+        config(
+            keys.clone(),
+            Arc::new(Nonces::new([[5; NONCE_LEN]])),
+            b"a",
+            1,
+        ),
+    );
+    let lane_b = wrap(
+        &cx,
+        backend.clone(),
+        config(keys, Arc::new(Nonces::new([[6; NONCE_LEN]])), b"b", 1),
+    );
+    let yes = cx.factory().bool(true).unwrap();
+    lane_a
+        .object()
+        .as_table_impl()
+        .unwrap()
+        .set(&mut cx, Symbol::new("x"), yes)
+        .unwrap();
+    let no = cx.factory().bool(false).unwrap();
+    lane_b
+        .object()
+        .as_table_impl()
+        .unwrap()
+        .set(&mut cx, Symbol::new("x"), no)
+        .unwrap();
+    let pa = physical(&key, b"a", "x");
+    let pb = physical(&key, b"b", "x");
+    let stable = raw(&backend, &mut cx, &pb);
+
+    for index in [0usize, 1, 17, 18] {
+        let mut corrupt = raw(&backend, &mut cx, &pa);
+        corrupt[index] ^= 0x40;
+        let corrupt_value = cx.factory().bytes(corrupt).unwrap();
+        backend
+            .object()
+            .as_table_impl()
+            .unwrap()
+            .set(&mut cx, Symbol::new(pa.as_str()), corrupt_value)
+            .unwrap();
+        assert_auth_failure(
+            lane_a
+                .object()
+                .as_table_impl()
+                .unwrap()
+                .get(&mut cx, Symbol::new("x")),
+        );
+    }
+    assert_eq!(raw(&backend, &mut cx, &pb), stable);
+    assert_eq!(
+        lane_b
+            .object()
+            .as_table_impl()
+            .unwrap()
+            .get(&mut cx, Symbol::new("x"))
+            .unwrap()
+            .object()
+            .as_expr(&mut cx)
+            .unwrap(),
+        Expr::Bool(false)
+    );
+    lane_a
+        .object()
+        .as_table_impl()
+        .unwrap()
+        .clear(&mut cx)
+        .unwrap();
+    assert_eq!(raw(&backend, &mut cx, &pb), stable);
+    assert_eq!(
+        lane_b
+            .object()
+            .as_table_impl()
+            .unwrap()
+            .get(&mut cx, Symbol::new("x"))
+            .unwrap()
+            .object()
+            .as_expr(&mut cx)
+            .unwrap(),
+        Expr::Bool(false)
+    );
+
+    assert_eq!(
+        SealedObject::decode(&vec![0; 9000], 8192),
+        Err(SealedError::Oversized)
+    );
+}
+
+#[test]
+fn persistent_dir_is_decorated_only_through_table_and_dir_contracts() {
+    let mut cx = bare_cx();
+    for capability in [
+        table_db_capability(),
+        table_db_read_capability(),
+        table_db_write_capability(),
+        table_db_mkdir_capability(),
+        table_db_rmdir_capability(),
+    ] {
+        cx.grant(capability);
+    }
+    let backend = install_db_dir_lib(&mut cx).unwrap();
+    let sealed = wrap(
+        &cx,
+        backend,
+        config(
+            Arc::new(Keys::new([51; 32])),
+            Arc::new(Nonces::new([[7; NONCE_LEN]])),
+            b"root",
+            1,
+        ),
+    );
+    let child = sealed
+        .object()
+        .as_dir()
+        .unwrap()
+        .mkdir(&mut cx, Symbol::new("child"))
+        .unwrap();
+    let value = cx.factory().string("value".into()).unwrap();
+    child
+        .object()
+        .as_table_impl()
+        .unwrap()
+        .set(&mut cx, Symbol::new("secret"), value)
+        .unwrap();
+    let reopened = sealed
+        .object()
+        .as_dir()
+        .unwrap()
+        .opendir(&mut cx, Symbol::new("child"))
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        reopened
+            .object()
+            .as_table_impl()
+            .unwrap()
+            .get(&mut cx, Symbol::new("secret"))
+            .unwrap()
+            .object()
+            .as_expr(&mut cx)
+            .unwrap(),
+        Expr::String("value".into())
+    );
+    let removed = sealed
+        .object()
+        .as_dir()
+        .unwrap()
+        .rmdir(&mut cx, Symbol::new("child"))
+        .unwrap();
+    assert_eq!(removed.object().as_expr(&mut cx).unwrap(), Expr::Nil);
+    assert!(
+        sealed
+            .object()
+            .as_dir()
+            .unwrap()
+            .opendir(&mut cx, Symbol::new("child"))
+            .unwrap()
+            .is_none()
+    );
+}
+```
+
 ### `feature/sim-storage/table-dir-backends`
+
+Specimen `spec-test/sim-storage/crates/sim-table-hash/src/tests` is checked by `cargo test`.
+
+Source `crates/sim-table-hash/src/tests.rs`:
+
+```rust
+// conformance: the hash backend preserves absent, nil, delete, and atomic compare-exchange semantics.
+
+use std::sync::Arc;
+
+use sim_kernel::{
+    Cx, DefaultFactory, Expr, HandleSeed, NoopEvalPolicy, ObjectEncoding, Symbol, Table,
+    TableExpected, TableReplacement, read_construct_capability,
+};
+
+use crate::{
+    HashBackend, HashTable, HashTableDescriptor, HashTableLib, hash_table_class_symbol,
+    install_hash_table_lib,
+};
+
+fn test_cx() -> Cx {
+    Cx::new(
+        Arc::new(NoopEvalPolicy),
+        Arc::new(DefaultFactory),
+        HandleSeed::new(1),
+    )
+}
+
+#[test]
+fn hash_table_lookup() {
+    let mut cx = test_cx();
+    let one = cx.factory().bool(true).unwrap();
+    let two = cx.factory().nil().unwrap();
+    let table = HashTable::with_entries(vec![
+        (Symbol::new("a"), one.clone()),
+        (Symbol::new("b"), two),
+    ]);
+
+    assert_eq!(table.len(&mut cx).unwrap(), 2);
+    assert!(table.has(&mut cx, Symbol::new("a")).unwrap());
+    assert_eq!(table.get(&mut cx, Symbol::new("a")).unwrap(), one);
+}
+
+#[test]
+fn hash_compare_exchange_rejects_stale_owner_and_preserves_nil_presence() {
+    let mut cx = test_cx();
+    let table = HashTable::new();
+    let key = Symbol::new("lease");
+    let owner = cx.factory().string("owner".to_owned()).unwrap();
+    assert!(
+        table
+            .compare_exchange(
+                &mut cx,
+                key.clone(),
+                TableExpected::Absent,
+                TableReplacement::Value(owner)
+            )
+            .unwrap()
+            .exchanged
+    );
+    assert!(
+        !table
+            .compare_exchange(
+                &mut cx,
+                key.clone(),
+                TableExpected::Value(Expr::String("stale".into())),
+                TableReplacement::Delete
+            )
+            .unwrap()
+            .exchanged
+    );
+    let nil = cx.factory().nil().unwrap();
+    table.set(&mut cx, key.clone(), nil).unwrap();
+    assert!(
+        table
+            .compare_exchange(
+                &mut cx,
+                key.clone(),
+                TableExpected::Value(Expr::Nil),
+                TableReplacement::Delete
+            )
+            .unwrap()
+            .exchanged
+    );
+    assert!(!table.has(&mut cx, key).unwrap());
+}
+
+#[test]
+fn install_registers_hash_backend() {
+    let mut cx = test_cx();
+    install_hash_table_lib(&mut cx).unwrap();
+    cx.table_registry_mut().set_active("hash").unwrap();
+
+    let backend = cx.table_registry().active();
+    assert_eq!(backend, "hash");
+
+    let name = <HashBackend as sim_kernel::TableBackend>::name(&HashBackend);
+    assert_eq!(name, "hash");
+}
+
+#[test]
+fn install_is_idempotent_and_manifest_is_stable() {
+    use sim_kernel::Lib;
+
+    let mut cx = test_cx();
+    let lib_id = Symbol::qualified("table", "hash");
+
+    // First install registers the backend and the loadable lib.
+    assert!(cx.registry().lib(&lib_id).is_none());
+    install_hash_table_lib(&mut cx).unwrap();
+    assert!(cx.registry().lib(&lib_id).is_some());
+
+    // Second install is a no-op: it returns early because the lib is present.
+    install_hash_table_lib(&mut cx).unwrap();
+    assert!(cx.registry().lib(&lib_id).is_some());
+
+    // The manifest identity/version comes from the shared constructor and is
+    // stable across calls.
+    let manifest = HashTableLib.manifest();
+    assert_eq!(manifest.id, lib_id);
+    assert_eq!(manifest.version.0, env!("CARGO_PKG_VERSION"));
+    assert_eq!(HashTableLib.manifest().version.0, manifest.version.0);
+}
+
+#[test]
+fn hash_table_citizen_round_trips_as_descriptor() {
+    let mut cx = test_cx();
+    cx.load_lib(&sim_citizen::CitizenLib::all()).unwrap();
+    cx.grant(read_construct_capability());
+    let value = cx.factory().string("value".to_owned()).unwrap();
+    let table = HashTable::with_entries(vec![(Symbol::new("key"), value)]);
+    let original = cx.factory().opaque(std::sync::Arc::new(table)).unwrap();
+
+    sim_citizen::check_value_fixture(&mut cx, original.clone()).unwrap();
+
+    let ObjectEncoding::Constructor { args, .. } = original
+        .object()
+        .as_object_encoder()
+        .unwrap()
+        .object_encoding(&mut cx)
+        .unwrap()
+    else {
+        panic!("expected constructor encoding");
+    };
+    let args = args
+        .iter()
+        .map(|arg| sim_citizen::value_from_expr(&mut cx, arg))
+        .collect::<sim_kernel::Result<Vec<_>>>()
+        .unwrap();
+    let decoded = cx.read_construct(&hash_table_class_symbol(), args).unwrap();
+
+    assert!(
+        decoded
+            .object()
+            .as_any()
+            .downcast_ref::<HashTableDescriptor>()
+            .is_some()
+    );
+    assert!(decoded.object().as_table_impl().is_none());
+}
+
+#[test]
+fn keys_and_entries_are_deterministically_ordered() {
+    // Regression guard for F39: `keys`/`entries` must not leak the
+    // nondeterministic HashMap order. Insert out of order, expect sorted.
+    let mut cx = test_cx();
+    let value = cx.factory().bool(true).unwrap();
+    let table = HashTable::with_entries(vec![
+        (Symbol::new("delta"), value.clone()),
+        (Symbol::new("alpha"), value.clone()),
+        (Symbol::new("charlie"), value.clone()),
+        (Symbol::new("bravo"), value),
+    ]);
+
+    let expected = vec![
+        Symbol::new("alpha"),
+        Symbol::new("bravo"),
+        Symbol::new("charlie"),
+        Symbol::new("delta"),
+    ];
+
+    assert_eq!(table.keys(&mut cx).unwrap(), expected);
+    // Stable across repeated calls.
+    assert_eq!(table.keys(&mut cx).unwrap(), expected);
+
+    let entry_keys: Vec<Symbol> = table
+        .entries(&mut cx)
+        .unwrap()
+        .into_iter()
+        .map(|(key, _)| key)
+        .collect();
+    assert_eq!(entry_keys, expected);
+}
+```
+
+### `feature/sim-storage/relation-table-dir-projection`
+
+Specimen `spec-test/sim-storage/crates/sim-table-relation/src/tests` is checked by `cargo test`.
+
+Source `crates/sim-table-relation/src/tests.rs`:
+
+```rust
+use super::*;
+use sim_kernel::{Cx, Dir, Error, Expr, Result, Symbol, Table, Value};
+use std::sync::Arc;
+
+struct TextCodec(Symbol);
+impl RelationValueCodec for TextCodec {
+    fn identity(&self) -> Symbol {
+        self.0.clone()
+    }
+    fn encode(&self, cx: &mut Cx, value: &Value) -> Result<Vec<u8>> {
+        match value.object().as_expr(cx)? {
+            Expr::String(v) => Ok(v.into_bytes()),
+            _ => Err(Error::Eval("test codec expects string".into())),
+        }
+    }
+    fn decode(&self, cx: &mut Cx, bytes: &[u8]) -> Result<Value> {
+        cx.factory()
+            .string(String::from_utf8(bytes.to_vec()).map_err(|_| Error::Eval("utf8".into()))?)
+    }
+}
+fn relation_cx() -> Cx {
+    let mut cx = sim_kernel::testing::eager_cx();
+    cx.grant(relation_namespace_capability());
+    cx.grant(relation_table_read_capability());
+    cx.grant(relation_table_write_capability());
+    cx
+}
+fn root() -> RelationDir {
+    RelationDir::open(Arc::new(TextCodec(Symbol::qualified("codec", "test"))))
+}
+
+#[test]
+fn d9_root_nested_operations_and_invariants() {
+    let mut cx = relation_cx();
+    let root = root();
+    assert_eq!(
+        (root.nodes().unwrap()[0].id, root.nodes().unwrap()[0].parent),
+        (0, 0)
+    );
+    let child = root.mkdir(&mut cx, Symbol::new("nested")).unwrap();
+    let dir = child.object().as_dir().unwrap();
+    dir.mkdir(&mut cx, Symbol::new("deep")).unwrap();
+    assert!(root.rmdir(&mut cx, Symbol::new("nested")).is_err());
+    assert!(root.mkdir(&mut cx, Symbol::new("nested")).is_err());
+    assert!(root.mkdir(&mut cx, Symbol::new("bad/name")).is_err());
+    assert_eq!(
+        root.nodes()
+            .unwrap()
+            .iter()
+            .map(|n| n.id)
+            .collect::<Vec<_>>(),
+        vec![0, 1, 2]
+    );
+}
+
+#[test]
+fn values_round_trip_and_failed_mutation_rolls_back() {
+    let mut cx = relation_cx();
+    let root = root();
+    let value = cx.factory().string("hello".into()).unwrap();
+    root.set(&mut cx, Symbol::new("item"), value).unwrap();
+    assert_eq!(
+        root.get(&mut cx, Symbol::new("item"))
+            .unwrap()
+            .object()
+            .as_expr(&mut cx)
+            .unwrap(),
+        Expr::String("hello".into())
+    );
+    let before = root.nodes().unwrap().len();
+    assert!(root.mkdir(&mut cx, Symbol::new("item")).is_err());
+    assert_eq!(root.nodes().unwrap().len(), before);
+    root.del(&mut cx, Symbol::new("item")).unwrap();
+    assert!(!root.has(&mut cx, Symbol::new("item")).unwrap());
+}
+
+#[test]
+fn capabilities_are_independent() {
+    let root = root();
+    let mut relation_only = sim_kernel::testing::eager_cx();
+    relation_only.grant(relation_namespace_capability());
+    assert!(root.keys(&mut relation_only).is_err());
+    let mut table_only = sim_kernel::testing::eager_cx();
+    table_only.grant(relation_table_read_capability());
+    assert!(root.keys(&mut table_only).is_err());
+}
+
+#[test]
+fn codec_mismatch_fails_closed() {
+    let mut cx = relation_cx();
+    let root = root();
+    let value = cx.factory().string("x".into()).unwrap();
+    root.set(&mut cx, Symbol::new("x"), value).unwrap();
+    root.replace_codec_identity(1, Symbol::qualified("codec", "other"));
+    assert!(root.get(&mut cx, Symbol::new("x")).is_err());
+}
+// conformance: relation-backed Table/Dir projection and keyed query views.
+```
 
 Specimen `spec-test/sim-storage/crates/sim-table-override/src/install` is checked by `cargo test`.
 
@@ -167,7 +1576,11 @@ use crate::{
 };
 
 fn cx() -> sim_kernel::Cx {
-    let mut cx = sim_kernel::Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = sim_kernel::Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(1),
+    );
     sim_test_support::register_core_classes(&mut cx);
     grant(
         &mut cx,
@@ -414,7 +1827,11 @@ fn mounted_namespace_observes_backend_state_and_capabilities() {
         Expr::String("after-mount".to_owned())
     );
 
-    let mut denied = sim_kernel::Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut denied = sim_kernel::Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(2),
+    );
     denied.grant(table_mount_capability());
     let denied_namespace = MountedDir::new(db_value(&mut denied)).unwrap();
     assert!(matches!(
@@ -482,238 +1899,844 @@ fn exported_functions_create_mount_inspect_and_unmount() {
 
 ### `feature/sim-storage/host-storage-primitives`
 
-Specimen `spec-test/sim-storage/crates/sim-table-fs/src/tests/table` is checked by `cargo test`.
+Specimen `spec-test/sim-storage/crates/sim-table-db/src/tests` is checked by `cargo test`.
 
-Source `crates/sim-table-fs/src/tests/table.rs`:
+Source `crates/sim-table-db/src/tests.rs`:
 
 ```rust
-use super::support::*;
+// conformance: host-backed tables preserve capability checks and table semantics.
 
-// conformance: host storage primitives read and write Table rows.
+use std::sync::Arc;
 
-#[test]
-fn fs_dir_set_get_roundtrip_and_extension_selection() {
-    let mut cx = cx();
-    grant(
-        &mut cx,
-        &[
-            table_fs_capability(),
-            table_fs_read_capability(),
-            table_fs_write_capability(),
-        ],
-    );
+use sim_kernel::{
+    DefaultFactory, EagerPolicy, Expr, Object, ObjectCompat, ObjectEncoding, Symbol,
+    read_construct_capability,
+};
 
-    let root = test_root("roundtrip");
-    let dir = install_fs_dir_lib(&mut cx, root.to_str().unwrap()).unwrap();
-    let table = dir.object().as_table_impl().unwrap();
-    let hello = cx.factory().string("hello".to_owned()).unwrap();
+use crate::{
+    DbDir, DbDirDescriptor, db_dir_class_symbol, install_db_dir_lib, table_db_capability,
+    table_db_mkdir_capability, table_db_read_capability, table_db_rmdir_capability,
+    table_db_write_capability,
+};
 
-    table.set(&mut cx, Symbol::new("alpha"), hello).unwrap();
-    assert!(root.join("alpha.siml").is_file());
-    let alpha = table.get(&mut cx, Symbol::new("alpha")).unwrap();
-    assert_eq!(
-        alpha.object().as_expr(&mut cx).unwrap(),
-        Expr::String("hello".to_owned())
+fn cx() -> sim_kernel::Cx {
+    let mut cx = sim_kernel::Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(1),
     );
+    sim_test_support::register_core_classes(&mut cx);
+    cx
+}
 
-    write_value_with_codec(
-        &mut cx,
-        &root.join("json-value.simj"),
-        Symbol::qualified("codec", "json"),
-        "json",
-    );
-    write_value_with_codec(
-        &mut cx,
-        &root.join("binary-value.simb"),
-        Symbol::qualified("codec", "binary"),
-        "binary",
-    );
-    write_value_with_codec(
-        &mut cx,
-        &root.join("binary-base64-value.simb64"),
-        Symbol::qualified("codec", "binary-base64"),
-        "binary-base64",
-    );
-    write_value_with_codec(
-        &mut cx,
-        &root.join("algol-value.sima"),
-        Symbol::qualified("codec", "algol"),
-        "algol",
-    );
-
-    for (key, expected) in [
-        ("json-value", "json"),
-        ("binary-value", "binary"),
-        ("binary-base64-value", "binary-base64"),
-        ("algol-value", "algol"),
-    ] {
-        let value = table.get(&mut cx, Symbol::new(key)).unwrap();
-        assert_eq!(
-            value.object().as_expr(&mut cx).unwrap(),
-            Expr::String(expected.to_owned())
-        );
+fn grant(cx: &mut sim_kernel::Cx, capabilities: &[sim_kernel::CapabilityName]) {
+    for capability in capabilities {
+        cx.grant(capability.clone());
     }
 }
 
 #[test]
-fn fs_dir_mkdir_opendir_rmdir_and_path_guards() {
+fn db_dir_namespaced_subtables_are_isolated() {
     let mut cx = cx();
     grant(
         &mut cx,
         &[
-            table_fs_capability(),
-            table_fs_read_capability(),
-            table_fs_mkdir_capability(),
-            table_fs_rmdir_capability(),
+            table_db_capability(),
+            table_db_read_capability(),
+            table_db_write_capability(),
+            table_db_mkdir_capability(),
+            table_db_rmdir_capability(),
         ],
     );
 
-    let root = test_root("dirs");
-    let dir = FsDir::open(root.clone()).unwrap();
-    let sub = dir.mkdir(&mut cx, Symbol::new("sub")).unwrap();
-    assert!(sub.object().as_dir().is_some());
-    assert!(dir.is_dir(&mut cx, Symbol::new("sub")).unwrap());
-    assert!(dir.opendir(&mut cx, Symbol::new("sub")).unwrap().is_some());
-    dir.rmdir(&mut cx, Symbol::new("sub")).unwrap();
-    assert!(!root.join("sub").exists());
+    let root = install_db_dir_lib(&mut cx).unwrap();
+    let root_dir = root.object().as_dir().unwrap();
+    let root_table = root.object().as_table_impl().unwrap();
+    let a = root_dir.mkdir(&mut cx, Symbol::new("a")).unwrap();
+    let a_dir = a.object().as_dir().unwrap();
+    let a_table = a.object().as_table_impl().unwrap();
+    let nested = a_dir.mkdir(&mut cx, Symbol::new("b")).unwrap();
+    let nested_table = nested.object().as_table_impl().unwrap();
 
-    for illegal in ["/tmp", "..", ".", "a/b", "a\\b"] {
-        let err = dir.mkdir(&mut cx, Symbol::new(illegal)).unwrap_err();
+    let root_value = cx.factory().string("root".to_owned()).unwrap();
+    root_table
+        .set(&mut cx, Symbol::new("x"), root_value)
+        .unwrap();
+    let child_value = cx.factory().string("child".to_owned()).unwrap();
+    a_table.set(&mut cx, Symbol::new("x"), child_value).unwrap();
+    let nested_value = cx.factory().string("deep".to_owned()).unwrap();
+    nested_table
+        .set(&mut cx, Symbol::new("y"), nested_value)
+        .unwrap();
+
+    assert_eq!(
+        root_table
+            .get(&mut cx, Symbol::new("x"))
+            .unwrap()
+            .object()
+            .as_expr(&mut cx)
+            .unwrap(),
+        Expr::String("root".to_owned())
+    );
+    assert_eq!(
+        a_table
+            .get(&mut cx, Symbol::new("x"))
+            .unwrap()
+            .object()
+            .as_expr(&mut cx)
+            .unwrap(),
+        Expr::String("child".to_owned())
+    );
+    assert_eq!(
+        root_table
+            .get(&mut cx, Symbol::new("y"))
+            .unwrap()
+            .object()
+            .as_expr(&mut cx)
+            .unwrap(),
+        Expr::Nil
+    );
+    assert!(root_dir.is_dir(&mut cx, Symbol::new("a")).unwrap());
+    assert_eq!(
+        root_table.keys(&mut cx).unwrap(),
+        vec![Symbol::new("a"), Symbol::new("x")]
+    );
+    assert_eq!(
+        a_table.keys(&mut cx).unwrap(),
+        vec![Symbol::new("b"), Symbol::new("x")]
+    );
+
+    root_dir.rmdir(&mut cx, Symbol::new("a")).unwrap();
+    assert!(!root_dir.is_dir(&mut cx, Symbol::new("a")).unwrap());
+    assert_eq!(
+        root_table
+            .get(&mut cx, Symbol::new("x"))
+            .unwrap()
+            .object()
+            .as_expr(&mut cx)
+            .unwrap(),
+        Expr::String("root".to_owned())
+    );
+    assert_eq!(
+        root_table
+            .get(&mut cx, Symbol::new("a"))
+            .unwrap()
+            .object()
+            .as_expr(&mut cx)
+            .unwrap(),
+        Expr::Nil
+    );
+}
+
+#[test]
+fn db_dir_dir_operations_are_capability_gated_and_names_are_checked() {
+    let mut cx = cx();
+    grant(&mut cx, &[table_db_capability()]);
+
+    let root = install_db_dir_lib(&mut cx).unwrap();
+    let root_dir = root.object().as_dir().unwrap();
+    let root_table = root.object().as_table_impl().unwrap();
+    let value = cx.factory().string("value".to_owned()).unwrap();
+
+    assert!(matches!(
+        root_table.get(&mut cx, Symbol::new("x")),
+        Err(sim_kernel::Error::CapabilityDenied { .. })
+    ));
+    assert!(matches!(
+        root_table.set(&mut cx, Symbol::new("x"), value),
+        Err(sim_kernel::Error::CapabilityDenied { .. })
+    ));
+    assert!(matches!(
+        root_dir.mkdir(&mut cx, Symbol::new("sub")),
+        Err(sim_kernel::Error::CapabilityDenied { .. })
+    ));
+    assert!(matches!(
+        root_dir.rmdir(&mut cx, Symbol::new("sub")),
+        Err(sim_kernel::Error::CapabilityDenied { .. })
+    ));
+
+    grant(
+        &mut cx,
+        &[
+            table_db_read_capability(),
+            table_db_write_capability(),
+            table_db_mkdir_capability(),
+            table_db_rmdir_capability(),
+        ],
+    );
+
+    let value = cx.factory().string("value".to_owned()).unwrap();
+    root_table.set(&mut cx, Symbol::new("leaf"), value).unwrap();
+    let err = root_dir.opendir(&mut cx, Symbol::new("leaf")).unwrap_err();
+    assert!(err.to_string().contains("not a directory"));
+
+    for illegal in ["", ".", "..", "a/b", "a\\b"] {
+        let err = root_dir.mkdir(&mut cx, Symbol::new(illegal)).unwrap_err();
         assert!(err.to_string().contains("illegal name"));
     }
 }
 
 #[test]
-fn fs_dir_operations_are_capability_gated() {
+fn db_dir_read_write_mkdir_and_rmdir_are_individually_capability_gated() {
     let mut cx = cx();
-    grant(&mut cx, &[table_fs_capability()]);
+    grant(&mut cx, &[table_db_capability()]);
 
-    let root = test_root("caps");
-    let dir = install_fs_dir_lib(&mut cx, root.to_str().unwrap()).unwrap();
-    let table = dir.object().as_table_impl().unwrap();
-    let fs_dir = dir.object().as_dir().unwrap();
+    let root = install_db_dir_lib(&mut cx).unwrap();
+    let root_dir = root.object().as_dir().unwrap();
+    let root_table = root.object().as_table_impl().unwrap();
     let value = cx.factory().string("value".to_owned()).unwrap();
 
     assert!(matches!(
-        table.get(&mut cx, Symbol::new("x")),
-        Err(sim_kernel::Error::CapabilityDenied { .. })
+        root_table.get(&mut cx, Symbol::new("x")),
+        Err(sim_kernel::Error::CapabilityDenied { capability })
+            if capability == table_db_read_capability()
     ));
     assert!(matches!(
-        table.set(&mut cx, Symbol::new("x"), value),
-        Err(sim_kernel::Error::CapabilityDenied { .. })
+        root_table.set(&mut cx, Symbol::new("x"), value),
+        Err(sim_kernel::Error::CapabilityDenied { capability })
+            if capability == table_db_write_capability()
     ));
     assert!(matches!(
-        fs_dir.mkdir(&mut cx, Symbol::new("sub")),
-        Err(sim_kernel::Error::CapabilityDenied { .. })
+        root_dir.mkdir(&mut cx, Symbol::new("sub")),
+        Err(sim_kernel::Error::CapabilityDenied { capability })
+            if capability == table_db_mkdir_capability()
     ));
     assert!(matches!(
-        fs_dir.rmdir(&mut cx, Symbol::new("sub")),
-        Err(sim_kernel::Error::CapabilityDenied { .. })
+        root_dir.rmdir(&mut cx, Symbol::new("sub")),
+        Err(sim_kernel::Error::CapabilityDenied { capability })
+            if capability == table_db_rmdir_capability()
     ));
 }
 
 #[test]
-fn fs_dir_accepts_compatibility_capability_aliases() {
-    let root = test_root("compat-caps");
-    let dir = FsDir::open(root).unwrap();
-
-    let mut rw_cx = cx();
+fn db_dir_display_and_default_open_root_are_stable() {
+    let mut cx = cx();
     grant(
-        &mut rw_cx,
+        &mut cx,
+        &[table_db_capability(), table_db_read_capability()],
+    );
+
+    let dir = DbDir::open();
+    assert_eq!(dir.display(&mut cx).unwrap(), "table/db[/]");
+    assert_eq!(dir.as_expr(&mut cx).unwrap(), Expr::Map(Vec::new()));
+}
+
+#[test]
+fn db_dir_citizen_round_trips_as_descriptor_only() {
+    let mut cx = cx();
+    cx.load_lib(&sim_citizen::CitizenLib::all()).unwrap();
+    cx.grant(read_construct_capability());
+    grant(
+        &mut cx,
         &[
-            sim_kernel::CapabilityName::new("table.fs.read"),
-            sim_kernel::CapabilityName::new("table.fs.write"),
+            table_db_capability(),
+            table_db_read_capability(),
+            table_db_mkdir_capability(),
         ],
     );
-    let value = rw_cx.factory().string("value".to_owned()).unwrap();
-    dir.set(&mut rw_cx, Symbol::new("x"), value).unwrap();
+    let root = install_db_dir_lib(&mut cx).unwrap();
+    let child = root
+        .object()
+        .as_dir()
+        .unwrap()
+        .mkdir(&mut cx, Symbol::new("child"))
+        .unwrap();
+
+    sim_citizen::check_value_fixture(&mut cx, child.clone()).unwrap();
+
+    let ObjectEncoding::Constructor { args, .. } = child
+        .object()
+        .as_object_encoder()
+        .unwrap()
+        .object_encoding(&mut cx)
+        .unwrap()
+    else {
+        panic!("expected constructor encoding");
+    };
+    let args = args
+        .iter()
+        .map(|arg| sim_citizen::value_from_expr(&mut cx, arg))
+        .collect::<sim_kernel::Result<Vec<_>>>()
+        .unwrap();
+    let decoded = cx.read_construct(&db_dir_class_symbol(), args).unwrap();
+    let descriptor = decoded
+        .object()
+        .as_any()
+        .downcast_ref::<DbDirDescriptor>()
+        .expect("expected db descriptor");
+
+    assert_eq!(descriptor.path, vec!["child".to_owned()]);
+    assert!(decoded.object().as_table_impl().is_none());
+    assert!(decoded.object().as_dir().is_none());
+}
+
+#[test]
+fn db_dir_citizen_rejects_malformed_path() {
+    let mut cx = cx();
+    cx.load_lib(&sim_citizen::CitizenLib::all()).unwrap();
+    cx.grant(read_construct_capability());
+    let args = [
+        Expr::Symbol(Symbol::new("v0")),
+        Expr::List(vec![Expr::String("..".to_owned())]),
+    ]
+    .iter()
+    .map(|arg| sim_citizen::value_from_expr(&mut cx, arg))
+    .collect::<sim_kernel::Result<Vec<_>>>()
+    .unwrap();
+
+    let err = cx.read_construct(&db_dir_class_symbol(), args).unwrap_err();
+    assert!(err.to_string().contains("illegal segment"));
+}
+```
+
+### `feature/sim-storage/bounded-relation-site`
+
+Specimen `spec-test/sim-storage/crates/sim-relation-site/src/tests` is checked by `cargo test`.
+
+Source `crates/sim-relation-site/src/tests.rs`:
+
+```rust
+// conformance: relation-site registration and locator grammar remain closed and capability-bearing.
+
+//! Relation-site conformance: the recording driver proves the bounded host seam.
+
+use super::*;
+use sim_kernel::{CapabilityName, Datum, DatumStore, Ref, testing::bare_cx as cx};
+use sim_relation_core::{Cell, DomainId, FieldName, FieldType, Row, RowType};
+use sim_relation_migrate::CheckedProgram;
+use sim_relation_plan::{CheckedMutation, CheckedQuery};
+use std::sync::{Arc, Mutex};
+
+#[derive(Default)]
+struct Log(Mutex<Vec<&'static str>>);
+struct RecordingDriver {
+    log: Arc<Log>,
+    fail: bool,
+}
+struct RecordingSession {
+    log: Arc<Log>,
+}
+impl Driver for RecordingDriver {
+    fn connect(&self, locator: &Datum, _: &Limits) -> Result<Box<dyn Session>, SiteError> {
+        self.log.0.lock().unwrap().push("connect");
+        if self.fail || !matches!(locator, Datum::String(_)) {
+            Err(SiteError::Locator)
+        } else {
+            Ok(Box::new(RecordingSession {
+                log: self.log.clone(),
+            }))
+        }
+    }
+}
+impl Session for RecordingSession {
+    fn query(
+        &mut self,
+        _: &CheckedQuery,
+        _: &Bindings,
+        _: &Limits,
+        _: &mut dyn RowSink,
+    ) -> Result<ProviderStats, SiteError> {
+        self.log.0.lock().unwrap().push("query");
+        Ok(ProviderStats {
+            work: 1,
+            affected: 0,
+        })
+    }
+    fn mutate(
+        &mut self,
+        _: &CheckedMutation,
+        _: &Bindings,
+        _: &Limits,
+        _: &mut dyn RowSink,
+    ) -> Result<ProviderStats, SiteError> {
+        self.log.0.lock().unwrap().push("mutate");
+        Ok(ProviderStats {
+            work: 1,
+            affected: 1,
+        })
+    }
+    fn migrate(&mut self, _: &CheckedProgram, _: &Limits) -> Result<ProviderStats, SiteError> {
+        self.log.0.lock().unwrap().push("migrate");
+        Ok(ProviderStats {
+            work: 1,
+            affected: 0,
+        })
+    }
+    fn schema(&mut self, _: &CheckedProgram, _: &Limits) -> Result<ProviderStats, SiteError> {
+        self.log.0.lock().unwrap().push("schema");
+        Ok(ProviderStats {
+            work: 1,
+            affected: 0,
+        })
+    }
+    fn transaction(
+        &mut self,
+        body: &mut dyn FnMut(&mut dyn Transaction) -> Result<(), SiteError>,
+    ) -> Result<(), SiteError> {
+        self.log.0.lock().unwrap().push("begin");
+        let mut tx = RecordingTx {
+            log: self.log.clone(),
+        };
+        match body(&mut tx) {
+            Ok(()) => {
+                self.log.0.lock().unwrap().push("commit");
+                Ok(())
+            }
+            Err(e) => {
+                self.log.0.lock().unwrap().push("rollback");
+                Err(e)
+            }
+        }
+    }
+    fn attach(&mut self, _: &Datum, _: &Limits) -> Result<ProviderStats, SiteError> {
+        self.log.0.lock().unwrap().push("attach");
+        Ok(ProviderStats::default())
+    }
+}
+struct RecordingTx {
+    log: Arc<Log>,
+}
+impl Session for RecordingTx {
+    fn query(
+        &mut self,
+        _: &CheckedQuery,
+        _: &Bindings,
+        _: &Limits,
+        _: &mut dyn RowSink,
+    ) -> Result<ProviderStats, SiteError> {
+        Ok(ProviderStats::default())
+    }
+    fn mutate(
+        &mut self,
+        _: &CheckedMutation,
+        _: &Bindings,
+        _: &Limits,
+        _: &mut dyn RowSink,
+    ) -> Result<ProviderStats, SiteError> {
+        Ok(ProviderStats::default())
+    }
+    fn migrate(&mut self, _: &CheckedProgram, _: &Limits) -> Result<ProviderStats, SiteError> {
+        Ok(ProviderStats::default())
+    }
+    fn schema(&mut self, _: &CheckedProgram, _: &Limits) -> Result<ProviderStats, SiteError> {
+        Ok(ProviderStats::default())
+    }
+    fn transaction(
+        &mut self,
+        _: &mut dyn FnMut(&mut dyn Transaction) -> Result<(), SiteError>,
+    ) -> Result<(), SiteError> {
+        Err(SiteError::Provider)
+    }
+    fn attach(&mut self, _: &Datum, _: &Limits) -> Result<ProviderStats, SiteError> {
+        Ok(ProviderStats::default())
+    }
+}
+impl Transaction for RecordingTx {
+    fn savepoint(
+        &mut self,
+        body: &mut dyn FnMut(&mut dyn Transaction) -> Result<(), SiteError>,
+    ) -> Result<(), SiteError> {
+        self.log.0.lock().unwrap().push("savepoint");
+        match body(self) {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                self.log.0.lock().unwrap().push("rollback-savepoint");
+                Err(e)
+            }
+        }
+    }
+}
+fn limits() -> Limits {
+    Limits::new(2, 2, 1000, 2).unwrap()
+}
+fn site(log: Arc<Log>) -> RelationSite {
+    RelationSite::new(
+        RelationPlacement::new(
+            Symbol::new("site/relation/recording"),
+            Datum::String("opaque".into()),
+        ),
+        Arc::new(RecordingDriver { log, fail: false }),
+    )
+}
+
+#[test]
+fn capability_denial_precedes_provider_contact() {
+    let log = Arc::new(Log::default());
+    let mut cx = cx();
+    let err = site(log.clone())
+        .attach(&mut cx, &Datum::Nil, limits())
+        .unwrap_err();
+    assert!(matches!(err, SiteError::Kernel(_)));
+    assert_eq!(cx.effect_ledger().records().len(), 1);
+    assert!(cx.effect_ledger().records()[0].aborted);
+    assert!(log.0.lock().unwrap().is_empty());
+}
+#[test]
+fn transaction_and_savepoint_unwind_totally() {
+    let log = Arc::new(Log::default());
+    let mut cx = cx();
+    cx.grant(CapabilityName::new("relation.transaction"));
+    let err = site(log.clone())
+        .transaction(&mut cx, limits(), |tx| {
+            tx.savepoint(&mut |_tx| Err(SiteError::Provider))
+        })
+        .unwrap_err();
+    assert!(matches!(err, SiteError::Provider));
+    assert_eq!(cx.effect_ledger().records().len(), 1);
+    assert!(cx.effect_ledger().records()[0].aborted);
     assert_eq!(
-        dir.get(&mut rw_cx, Symbol::new("x"))
+        *log.0.lock().unwrap(),
+        vec![
+            "connect",
+            "begin",
+            "savepoint",
+            "rollback-savepoint",
+            "rollback"
+        ]
+    );
+}
+#[test]
+fn locator_is_validated_only_after_capability() {
+    let log = Arc::new(Log::default());
+    let mut cx = cx();
+    cx.grant(CapabilityName::new("relation.attach"));
+    let placement = RelationPlacement::new(Symbol::new("site/relation/recording"), Datum::Nil);
+    let s = RelationSite::new(
+        placement,
+        Arc::new(RecordingDriver {
+            log: log.clone(),
+            fail: false,
+        }),
+    );
+    assert!(matches!(
+        s.attach(&mut cx, &Datum::Nil, limits()),
+        Err(SiteError::Locator)
+    ));
+    assert_eq!(*log.0.lock().unwrap(), vec!["connect"]);
+}
+#[test]
+fn mandatory_limits_and_bindings_fail_closed() {
+    assert!(matches!(
+        Limits::new(0, 1, 1, 1),
+        Err(SiteError::InvalidLimits)
+    ));
+    let domain = DomainId::new(Symbol::qualified("domain", "text")).unwrap();
+    let row_type = RowType::new([FieldType {
+        name: FieldName::new(Symbol::new("value")).unwrap(),
+        domain: domain.clone(),
+        nullable: false,
+    }])
+    .unwrap();
+    assert!(matches!(
+        Bindings::new(&row_type, []),
+        Err(SiteError::Bindings(_))
+    ));
+
+    let row = Row::new(
+        row_type.clone(),
+        [Cell::new(domain, Some(Datum::String("bounded".into())))],
+    )
+    .unwrap();
+    let limits = Limits::new(1, 1, 1_000, 1).unwrap();
+    let mut counts = Counts::default();
+    let mut collect = VecRowSink::default();
+    let mut sink = BoundedSink {
+        expected: &row_type,
+        limits: &limits,
+        inner: &mut collect,
+        counts: &mut counts,
+    };
+    sink.push(row.clone()).unwrap();
+    assert!(matches!(
+        sink.push(row.clone()),
+        Err(SiteError::Limit(LimitKind::Rows))
+    ));
+    assert_eq!(collect.rows(), &[row]);
+    assert!(matches!(
+        enforce_work(&limits, 2),
+        Err(SiteError::Limit(LimitKind::Work))
+    ));
+}
+
+#[test]
+fn every_operation_is_capability_gated_and_records_one_effect() {
+    for operation in [
+        Operation::Read,
+        Operation::Write,
+        Operation::Schema,
+        Operation::Migrate,
+        Operation::Transaction,
+        Operation::Attach,
+    ] {
+        let log = Arc::new(Log::default());
+        let relation_site = site(log.clone());
+        let mut denied = cx();
+        let error = relation_site
+            .effect(&mut denied, operation, |_| panic!("denied operation ran"))
+            .unwrap_err();
+        assert!(matches!(error, SiteError::Kernel(_)));
+        assert_eq!(denied.effect_ledger().records().len(), 1);
+        assert!(denied.effect_ledger().records()[0].aborted);
+
+        let mut allowed = cx();
+        allowed.grant(operation.capability());
+        relation_site
+            .effect(&mut allowed, operation, |cx| {
+                cx.datum_store_mut()
+                    .intern(Datum::Nil)
+                    .map(Ref::Content)
+                    .map_err(kernel)
+            })
+            .unwrap();
+        assert_eq!(allowed.effect_ledger().records().len(), 1);
+        assert!(!allowed.effect_ledger().records()[0].aborted);
+    }
+}
+#[test]
+fn library_declares_site_export() {
+    let lib = RelationSiteLib::new(site(Arc::new(Log::default())));
+    assert!(
+        matches!(&lib.manifest().exports[0],Export::Site{symbol,..} if symbol==&Symbol::new("site/relation/recording"))
+    );
+}
+```
+
+### `feature/sim-storage/sqlite-relation-locator`
+
+Specimen `spec-test/sim-storage/crates/sim-relation-site/src/sqlite_locator_tests` is checked by `cargo test`.
+
+Source `crates/sim-relation-site/src/sqlite_locator_tests.rs`:
+
+```rust
+// conformance: SQLite registration and locators remain closed and capability-bearing.
+
+use sim_kernel::{Datum, Symbol};
+
+use crate::{DriverManifest, SiteError, StorageLocator};
+
+#[test]
+fn sqlite_registration_and_locator_grammar_fail_closed() {
+    let manifest = DriverManifest::sqlite(
+        Symbol::qualified("relation/site", "sqlite"),
+        Symbol::qualified("relation/provider", "sqlite"),
+    )
+    .unwrap();
+    assert_eq!(manifest.site, Symbol::qualified("relation/site", "sqlite"));
+    assert!(matches!(
+        DriverManifest::sqlite(Symbol::new("sqlite"), Symbol::new("sqlite")),
+        Err(SiteError::Registration)
+    ));
+    assert_eq!(
+        StorageLocator::from_datum(&Datum::Node {
+            tag: Symbol::qualified("relation", "memory"),
+            fields: vec![],
+        }),
+        Ok(StorageLocator::Memory)
+    );
+    assert!(matches!(
+        StorageLocator::from_datum(&Datum::String("/tmp/db".into())),
+        Err(SiteError::Locator)
+    ));
+}
+```
+
+### `feature/sim-storage/relation-command`
+
+Specimen `spec-test/sim-storage/crates/sim-lib-relation-cli/src/tests` is checked by `cargo test`.
+
+Source `crates/sim-lib-relation-cli/src/tests.rs`:
+
+```rust
+//! Checked relation-command specimens for discovery and conformance.
+// conformance: closed relation command grammar and authorization boundary.
+
+use super::*;
+use sim_kernel::{Export, Lib};
+use std::sync::{Arc, Mutex};
+
+fn words(input: &str) -> Vec<String> {
+    input.split_whitespace().map(str::to_owned).collect()
+}
+
+#[derive(Default)]
+struct Specimen {
+    seen: Mutex<Vec<RelationCommand>>,
+}
+impl RelationCommands for Specimen {
+    fn execute(&self, command: &RelationCommand) -> Result<String, CommandError> {
+        self.seen.lock().unwrap().push(command.clone());
+        Ok(match command {
+            RelationCommand::Site {
+                action: ReadAction::List,
+                ..
+            } => "provider\tsite\nSQLite\trelation/site/sqlite\n".into(),
+            RelationCommand::Site { id: Some(id), .. } => {
+                format!("logical={id}\nphysical=sqlite:v3\naccess=read-only\n")
+            }
+            RelationCommand::Schema {
+                action: SchemaAction::Inspect,
+                target,
+                ..
+            } => format!("logical={target}\nphysical=schema:legacy-v1\nmode=read-only\n"),
+            RelationCommand::Schema {
+                action: SchemaAction::Adopt,
+                artifact: Some(id),
+                authority: Some(auth),
+                ..
+            } if id == &auth.expected_plan => format!(
+                "logical={id}\nphysical={id}\nplan={id}\nauthorized-by={}\nadopted\n",
+                auth.product
+            ),
+            RelationCommand::Schema {
+                action: SchemaAction::Adopt,
+                artifact: Some(id),
+                authority: Some(auth),
+                ..
+            } => {
+                return Err(CommandError::new(format!(
+                    "drift refusal: checked={id} physical={}",
+                    auth.expected_plan
+                )));
+            }
+            RelationCommand::Schema {
+                artifact: Some(id),
+                authority: Some(auth),
+                ..
+            }
+            | RelationCommand::Migration {
+                artifact: id,
+                authority: Some(auth),
+                ..
+            } if id == &auth.expected_plan => format!(
+                "logical={id}\nphysical=sqlite:v3\nplan={id}\nbounds=rows:100\nauthorized-by={}\napplied\n",
+                auth.product
+            ),
+            RelationCommand::Migration {
+                artifact,
+                authority: None,
+                ..
+            } => {
+                format!("logical=migration\nphysical=sqlite:v2\nplan={artifact}\nbounds=work:100\n")
+            }
+            RelationCommand::Query { plan, limit, .. } => {
+                format!("Table\nplan={plan}\nrows<= {limit}\n")
+            }
+            RelationCommand::Mutation {
+                plan,
+                limit,
+                authority,
+                ..
+            } if plan == &authority.expected_plan => format!(
+                "plan={plan}\nbounds=rows:{limit}\nauthorized-by={}\naffected=1\n",
+                authority.product
+            ),
+            RelationCommand::Mount { target } => {
+                format!("Dir\nmount={target}\nlogical=/relation/customers\nprovider=SQLite\n")
+            }
+            _ => return Err(CommandError::new("checked plan identity mismatch")),
+        })
+    }
+}
+
+#[test]
+fn fresh_database_and_provider_listing_specimen() {
+    let c = parse(&words("relation site list")).unwrap();
+    assert!(Specimen::default().execute(&c).unwrap().contains("SQLite"));
+}
+#[test]
+fn old_file_inspection_is_read_only() {
+    let c = parse(&words("relation schema inspect --site legacy")).unwrap();
+    let out = Specimen::default().execute(&c).unwrap();
+    assert!(out.contains("mode=read-only"));
+}
+#[test]
+fn exact_adoption_renders_ids_authority_and_plan() {
+    let c=parse(&words("relation schema adopt --site db --schema schema:v1 --authorize office --expect-plan schema:v1")).unwrap();
+    let out = Specimen::default().execute(&c).unwrap();
+    assert!(
+        out.contains("logical=schema:v1")
+            && out.contains("physical=schema:v1")
+            && out.contains("authorized-by=office")
+    );
+}
+#[test]
+fn migration_drift_refuses_action() {
+    let c=parse(&words("relation schema adopt --site db --schema schema:v2 --authorize office --expect-plan schema:v1")).unwrap();
+    assert!(
+        Specimen::default()
+            .execute(&c)
+            .unwrap_err()
+            .to_string()
+            .contains("drift refusal")
+    );
+}
+#[test]
+fn bounded_query_specimen() {
+    let c = parse(&words(
+        "relation query run --site db --plan query:customers --limit 5",
+    ))
+    .unwrap();
+    assert!(
+        Specimen::default()
+            .execute(&c)
             .unwrap()
-            .object()
-            .as_expr(&mut rw_cx)
-            .unwrap(),
-        Expr::String("value".to_owned())
+            .contains("rows<= 5")
     );
-
-    let mut mkdir_cx = cx();
-    grant(
-        &mut mkdir_cx,
-        &[sim_kernel::CapabilityName::new("table.fs.mkdir")],
-    );
-    dir.mkdir(&mut mkdir_cx, Symbol::new("sub")).unwrap();
-
-    let mut rmdir_cx = cx();
-    grant(
-        &mut rmdir_cx,
-        &[sim_kernel::CapabilityName::new("table.fs.rmdir")],
-    );
-    dir.rmdir(&mut rmdir_cx, Symbol::new("sub")).unwrap();
 }
-
 #[test]
-fn fs_dir_rejects_traversal_inputs_for_get_set_and_mkdir() {
-    let mut cx = cx();
-    grant(
-        &mut cx,
-        &[
-            table_fs_capability(),
-            table_fs_read_capability(),
-            table_fs_write_capability(),
-            table_fs_mkdir_capability(),
-        ],
+fn authorized_mutation_specimen() {
+    let c=parse(&words("relation mutation run --site db --plan mutation:add --limit 1 --authorize ledger --expect-plan mutation:add")).unwrap();
+    assert!(
+        Specimen::default()
+            .execute(&c)
+            .unwrap()
+            .contains("affected=1")
     );
-
-    let root = test_root("traversal");
-    let dir = install_fs_dir_lib(&mut cx, root.to_str().unwrap()).unwrap();
-    let table = dir.object().as_table_impl().unwrap();
-    let fs_dir = dir.object().as_dir().unwrap();
-    let value = cx.factory().string("value".to_owned()).unwrap();
-
-    for illegal in ["..", "/etc/passwd", "a/b", "a\\b"] {
-        let key = Symbol::new(illegal);
-
-        let err = table.get(&mut cx, key.clone()).unwrap_err();
-        assert!(err.to_string().contains("illegal name") || err.to_string().contains("escapes"));
-
-        let err = table.set(&mut cx, key.clone(), value.clone()).unwrap_err();
-        assert!(err.to_string().contains("illegal name") || err.to_string().contains("escapes"));
-
-        let err = fs_dir.mkdir(&mut cx, key).unwrap_err();
-        assert!(err.to_string().contains("illegal name") || err.to_string().contains("escapes"));
-    }
-
-    assert!(!root.join("a").exists());
-    assert!(!root.join("etc").exists());
 }
-
 #[test]
-fn fs_dir_rejects_illegal_segments_via_shared_predicate() {
-    let mut cx = cx();
-    grant(
-        &mut cx,
-        &[
-            table_fs_capability(),
-            table_fs_read_capability(),
-            table_fs_write_capability(),
-            table_fs_mkdir_capability(),
-        ],
-    );
-
-    let root = test_root("illegal-segments");
-    let dir = install_fs_dir_lib(&mut cx, root.to_str().unwrap()).unwrap();
-    let table = dir.object().as_table_impl().unwrap();
-    let fs_dir = dir.object().as_dir().unwrap();
-
-    // Names that `is_legal_table_segment` rejects, plus the table-fs-only
-    // absolute-path guard, must all fail closed with the table-fs message.
-    for illegal in ["", ".", "..", "a/b", "a\\b", "/abs"] {
-        assert!(!sim_table_core::is_legal_table_segment(illegal) || illegal == "/abs");
-        let key = Symbol::new(illegal);
-        let err = table.get(&mut cx, key.clone()).unwrap_err();
-        assert!(err.to_string().contains("illegal name") || err.to_string().contains("escapes"));
-        let err = fs_dir.mkdir(&mut cx, key).unwrap_err();
-        assert!(err.to_string().contains("illegal name") || err.to_string().contains("escapes"));
+fn mount_explanation_specimen() {
+    let c = parse(&words("relation mount explain --mount customer-db")).unwrap();
+    assert!(Specimen::default().execute(&c).unwrap().starts_with("Dir"));
+}
+#[test]
+fn every_documented_operation_parses() {
+    for input in [
+        "relation site show --site db",
+        "relation schema apply --site db --schema schema:v2 --authorize office --expect-plan schema:v2",
+        "relation migration plan --site db --migration migration:v2",
+        "relation migration apply --site db --migration migration:v2 --authorize office --expect-plan migration:v2",
+    ] {
+        parse(&words(input)).unwrap();
     }
+}
+#[test]
+fn mutation_and_adoption_require_product_authority() {
+    for input in [
+        "relation mutation run --site db --plan p",
+        "relation schema adopt --site db --schema s",
+    ] {
+        assert!(
+            parse(&words(input))
+                .unwrap_err()
+                .to_string()
+                .contains("--authorize")
+        );
+    }
+}
+#[test]
+fn raw_sql_escape_is_absent() {
+    assert!(
+        parse(&words("relation query run --site db --sql SELECT"))
+            .unwrap_err()
+            .to_string()
+            .contains("raw SQL")
+    );
+}
+#[test]
+fn library_exports_exact_relation_handoff() {
+    let lib = RelationCommandLib::new(Arc::new(Specimen::default()));
+    assert!(Lib::manifest(&lib).exports.iter().any(
+        |e| matches!(e, Export::Function{symbol,..} if symbol==&relation_entrypoint_symbol())
+    ));
 }
 ```

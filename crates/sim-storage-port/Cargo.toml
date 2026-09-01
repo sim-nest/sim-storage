@@ -1,0 +1,12 @@
+[package]
+name = "sim-storage-port"
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+description = "Portable host-directory port contracts for SIM storage"
+repository = "https://github.com/sim-nest/sim-storage"
+homepage = "https://github.com/sim-nest/sim-storage"
+publish = true
+
+[lints]
+workspace = true

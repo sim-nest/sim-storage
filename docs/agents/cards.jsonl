@@ -1,11 +1,3 @@
-{"kind":"recipe","path":"crates/sim-table-fs/recipes/01-basics/chapter.toml"}
-{"kind":"recipe","path":"crates/sim-table-fs/recipes/01-basics/grep-tree/purpose.md"}
-{"kind":"recipe","path":"crates/sim-table-fs/recipes/01-basics/grep-tree/recipe.toml"}
-{"kind":"recipe","path":"crates/sim-table-fs/recipes/01-basics/grep-tree/setup.siml"}
-{"kind":"recipe","path":"crates/sim-table-fs/recipes/01-basics/read-edit-file/purpose.md"}
-{"kind":"recipe","path":"crates/sim-table-fs/recipes/01-basics/read-edit-file/recipe.toml"}
-{"kind":"recipe","path":"crates/sim-table-fs/recipes/01-basics/read-edit-file/setup.siml"}
-{"kind":"recipe","path":"crates/sim-table-fs/recipes/book.toml"}
 {"kind":"recipe","path":"crates/sim-table-http/recipes/01-basics/chapter.toml"}
 {"kind":"recipe","path":"crates/sim-table-http/recipes/01-basics/http-get/purpose.md"}
 {"kind":"recipe","path":"crates/sim-table-http/recipes/01-basics/http-get/recipe.toml"}
@@ -16,3 +8,13 @@
 {"kind":"recipe","path":"crates/sim-table-mount/recipes/01-basics/backend-composition/setup.siml"}
 {"kind":"recipe","path":"crates/sim-table-mount/recipes/01-basics/chapter.toml"}
 {"kind":"recipe","path":"crates/sim-table-mount/recipes/book.toml"}
+{"kind":"recipe","path":"crates/sim-table-relation/recipes/01-basics/chapter.toml"}
+{"kind":"recipe","path":"crates/sim-table-relation/recipes/01-basics/relational-mount/purpose.md"}
+{"kind":"recipe","path":"crates/sim-table-relation/recipes/01-basics/relational-mount/recipe.toml"}
+{"kind":"recipe","path":"crates/sim-table-relation/recipes/01-basics/relational-mount/setup.siml"}
+{"kind":"recipe","path":"crates/sim-table-relation/recipes/book.toml"}
+{"kind":"recipe","path":"crates/sim-table-sealed/recipes/01-basics/chapter.toml"}
+{"kind":"recipe","path":"crates/sim-table-sealed/recipes/01-basics/sealed-table-contract/purpose.md"}
+{"kind":"recipe","path":"crates/sim-table-sealed/recipes/01-basics/sealed-table-contract/recipe.toml"}
+{"kind":"recipe","path":"crates/sim-table-sealed/recipes/01-basics/sealed-table-contract/setup.siml"}
+{"kind":"recipe","path":"crates/sim-table-sealed/recipes/book.toml"}

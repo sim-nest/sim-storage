@@ -2,15 +2,21 @@
 [workspace]
 resolver = "3"
 members = [
+  "crates/sim-lib-journal",
+  "crates/sim-mutual-projection",
+  "crates/sim-lib-relation-cli",
   "crates/sim-list-cell",
   "crates/sim-list-lazy",
+  "crates/sim-relation-site",
   "crates/sim-table-db",
-  "crates/sim-table-fs",
+  "crates/sim-storage-port",
   "crates/sim-table-hash",
   "crates/sim-table-http",
   "crates/sim-table-lazy",
   "crates/sim-table-mount",
+  "crates/sim-table-relation",
   "crates/sim-table-override",
+  "crates/sim-table-sealed",
   "xtask",
 ]
 
@@ -22,3 +28,7 @@ homepage = "https://github.com/sim-nest/sim-storage"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
+
+[patch.crates-io]
+sim-table-db = { path = "crates/sim-table-db" }
+sim-table-sealed = { path = "crates/sim-table-sealed" }

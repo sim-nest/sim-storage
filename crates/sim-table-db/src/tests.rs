@@ -1,3 +1,5 @@
+// conformance: host-backed tables preserve capability checks and table semantics.
+
 use std::sync::Arc;
 
 use sim_kernel::{
@@ -12,7 +14,11 @@ use crate::{
 };
 
 fn cx() -> sim_kernel::Cx {
-    let mut cx = sim_kernel::Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = sim_kernel::Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(1),
+    );
     sim_test_support::register_core_classes(&mut cx);
     cx
 }

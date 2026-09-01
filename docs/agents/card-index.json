@@ -1,14 +1,6 @@
 {
   "schema": "sim.card-index.v1",
   "cards": [
-    "crates/sim-table-fs/recipes/01-basics/chapter.toml",
-    "crates/sim-table-fs/recipes/01-basics/grep-tree/purpose.md",
-    "crates/sim-table-fs/recipes/01-basics/grep-tree/recipe.toml",
-    "crates/sim-table-fs/recipes/01-basics/grep-tree/setup.siml",
-    "crates/sim-table-fs/recipes/01-basics/read-edit-file/purpose.md",
-    "crates/sim-table-fs/recipes/01-basics/read-edit-file/recipe.toml",
-    "crates/sim-table-fs/recipes/01-basics/read-edit-file/setup.siml",
-    "crates/sim-table-fs/recipes/book.toml",
     "crates/sim-table-http/recipes/01-basics/chapter.toml",
     "crates/sim-table-http/recipes/01-basics/http-get/purpose.md",
     "crates/sim-table-http/recipes/01-basics/http-get/recipe.toml",
@@ -18,6 +10,16 @@
     "crates/sim-table-mount/recipes/01-basics/backend-composition/recipe.toml",
     "crates/sim-table-mount/recipes/01-basics/backend-composition/setup.siml",
     "crates/sim-table-mount/recipes/01-basics/chapter.toml",
-    "crates/sim-table-mount/recipes/book.toml"
+    "crates/sim-table-mount/recipes/book.toml",
+    "crates/sim-table-relation/recipes/01-basics/chapter.toml",
+    "crates/sim-table-relation/recipes/01-basics/relational-mount/purpose.md",
+    "crates/sim-table-relation/recipes/01-basics/relational-mount/recipe.toml",
+    "crates/sim-table-relation/recipes/01-basics/relational-mount/setup.siml",
+    "crates/sim-table-relation/recipes/book.toml",
+    "crates/sim-table-sealed/recipes/01-basics/chapter.toml",
+    "crates/sim-table-sealed/recipes/01-basics/sealed-table-contract/purpose.md",
+    "crates/sim-table-sealed/recipes/01-basics/sealed-table-contract/recipe.toml",
+    "crates/sim-table-sealed/recipes/01-basics/sealed-table-contract/setup.siml",
+    "crates/sim-table-sealed/recipes/book.toml"
   ]
 }

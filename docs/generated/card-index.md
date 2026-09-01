@@ -5,7 +5,8 @@
 | Card | Kind | Owner | Summary |
 | --- | --- | --- | --- |
 | `browse/catalog` | `browse-root` | `workspace` | root browse catalog |
-| `cookbook/storage/table-fs` | `cookbook-recipe` | `sim-table-fs` | Host directory reads, writes, edits, and searches through the table surface. |
 | `cookbook/storage/table-http` | `cookbook-recipe` | `sim-table-http` | Direct HTTP resources addressed through the table directory surface. |
 | `cookbook/storage/table-mount` | `cookbook-recipe` | `sim-table-mount` | Compose independently owned Table and Dir backends behind one directory view. |
+| `cookbook/storage/table-sealed` | `cookbook-recipe` | `sim-table-sealed` | Use authenticated encrypted lanes through the ordinary Table/Dir surface. |
+| `cookbook/table/relation` | `cookbook-recipe` | `sim-table-relation` | Expose checked relation providers through Table and Dir contracts. |
 | `registry/catalog` | `browse-registry` | `workspace` | registry catalog browse card |

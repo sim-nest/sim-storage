@@ -4,6 +4,16 @@
     {
       "features": [],
       "group": "workspace",
+      "package": "sim-lib-journal"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-relation-cli"
+    },
+    {
+      "features": [],
+      "group": "workspace",
       "package": "sim-list-cell"
     },
     {
@@ -14,61 +24,22 @@
     {
       "features": [],
       "group": "workspace",
-      "package": "sim-table-db"
+      "package": "sim-mutual-projection"
     },
     {
-      "features": [
-        {
-          "edges": [],
-          "name": "default",
-          "workspace_edges": []
-        },
-        {
-          "edges": [
-            "dep:sim-lib-midi-shapes",
-            "dep:sim-lib-midi-smf"
-          ],
-          "name": "midi",
-          "workspace_edges": []
-        },
-        {
-          "edges": [
-            "dep:sim-lib-music-core",
-            "dep:sim-lib-music-shapes"
-          ],
-          "name": "music",
-          "workspace_edges": []
-        },
-        {
-          "edges": [
-            "dep:sim-lib-music-core",
-            "dep:sim-lib-music-notation",
-            "dep:sim-lib-music-shapes"
-          ],
-          "name": "notation",
-          "workspace_edges": []
-        },
-        {
-          "edges": [
-            "dep:sim-lib-sound-core",
-            "dep:sim-lib-sound-shapes"
-          ],
-          "name": "sound",
-          "workspace_edges": []
-        },
-        {
-          "edges": [
-            "dep:sim-lib-pitch-core",
-            "dep:sim-lib-sound-core",
-            "dep:sim-lib-sound-shapes",
-            "dep:sim-lib-sound-tuning"
-          ],
-          "name": "tuning",
-          "workspace_edges": []
-        }
-      ],
+      "features": [],
       "group": "workspace",
-      "package": "sim-table-fs"
+      "package": "sim-relation-site"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-storage-port"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-table-db"
     },
     {
       "features": [],
@@ -84,8 +55,7 @@
         },
         {
           "edges": [
-            "dep:rustls",
-            "dep:rustls-native-certs"
+            "sim-lib-net-http/tls"
           ],
           "name": "tls",
           "workspace_edges": []
@@ -108,6 +78,16 @@
       "features": [],
       "group": "workspace",
       "package": "sim-table-override"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-table-relation"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-table-sealed"
     },
     {
       "features": [],

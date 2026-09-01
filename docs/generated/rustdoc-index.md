@@ -4,13 +4,19 @@
 
 | Package | Group | Summary |
 | --- | --- | --- |
+| `sim-lib-journal` | `workspace` | Domain-free atomic journal behavior over content-addressed objects. |
+| `sim-lib-relation-cli` | `workspace` | Loadable command surface for checked relational data. |
 | `sim-list-cell` | `workspace` | Cell-based list backend for the SIM constellation. |
 | `sim-list-lazy` | `workspace` | Lazy list backend for the SIM constellation. |
+| `sim-mutual-projection` | `workspace` | Bilateral, copied projections between mutually opaque archives. |
+| `sim-relation-site` | `workspace` | Bounded, provider-neutral relation effects. |
+| `sim-storage-port` | `workspace` | Portable contracts between SIM's Table/Dir policy and host storage. |
 | `sim-table-db` | `workspace` | Db-backed table backend for the SIM constellation. |
-| `sim-table-fs` | `workspace` | Filesystem-backed table store for SIM. |
 | `sim-table-hash` | `workspace` | Hash-map table backend for the SIM constellation. |
 | `sim-table-http` | `workspace` | HTTP-backed table directory backend for SIM. |
 | `sim-table-lazy` | `workspace` | Lazy table backend for the SIM constellation. |
 | `sim-table-mount` | `workspace` | Mounted Table/Dir namespace for SIM storage backends. |
 | `sim-table-override` | `workspace` | Override (overlay) table backend for the SIM constellation. |
+| `sim-table-relation` | `workspace` | Relation-backed implementations of the standard Table and Dir contracts. |
+| `sim-table-sealed` | `workspace` | Authenticated-encryption decorator for any SIM Table or Dir backend. |
 | `xtask` | `workspace` | SIM workspace package for xtask. |

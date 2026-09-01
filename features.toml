@@ -14,12 +14,56 @@ major_entrypoints = "advisory"
 frameworks = "advisory"
 
 [[feature]]
+id = "feature/sim-storage/atomic-content-journal"
+title = "Atomic content journal"
+summary = "Crash-durably publish immutable content and atomically advance one gapless, fenced journal head with bounded verified reopen and disposable read-only projections."
+owner = "crate/sim-lib-journal"
+audiences = ["code", "framework"]
+guidance = "Compose this domain-free journal for durable facts. Bind HostDirPort through HostDirJournalBackend only when its capability report attests linearizable CAS and durable publication; use open Symbol kinds and opaque ContentId payloads rather than adding a lock, filesystem contract, or domain log."
+claims_anchors = [
+  "anchor/crate/sim-lib-journal",
+]
+claims_specimens = [
+  "spec-test/sim-storage/crates/sim-lib-journal/src/tests",
+]
+
+[[feature]]
+id = "feature/sim-storage/mutual-copied-projection"
+title = "Two-key mutual copied projection"
+summary = "Copy one Shape-admitted fact and provenance between opaque peer archives only after two independent acceptances, with expiry, revocation, and minimum tombstones."
+owner = "crate/sim-mutual-projection"
+audiences = ["code", "framework"]
+guidance = "Use MutualPorch when peers share selected facts but must never mount or query one another's stores. Keep key providers and archives outside the porch; bind both key identities, the exact field Shape, content identity, provenance, and expiry in the immutable offer."
+claims_anchors = ["anchor/crate/sim-mutual-projection"]
+claims_specimens = ["spec-test/sim-storage/crates/sim-mutual-projection/src/tests"]
+supports = [
+  "feature/sim-storage/atomic-content-journal",
+  "feature/sim-storage/table-dir-backends",
+  "feature/sim-foundation/table-dir-core",
+]
+
+[[feature]]
+id = "feature/sim-storage/sealed-table-decorator"
+title = "Sealed authenticated Table/Dir decorator"
+summary = "Wrap Table/Dir storage with authenticated encryption and manage crash-safe, independently granted generations, wrapped-only backups, recovery, and bounded crypto-erasure evidence."
+owner = "crate/sim-table-sealed"
+audiences = ["code", "framework"]
+guidance = "Compose SealedTable around a persistent Table/Dir only after the host injects revocable key and nonce providers. Use GenerationManager for independently granted ordinary, finance, and private-observation generations: stage ciphertext and authenticated manifest before atomic selection, back up only wrapped envelopes, and describe managed destruction with provider receipts, negative probes, residual leakage, and an explicit exclusion for unmanaged plaintext."
+claims_anchors = ["anchor/crate/sim-table-sealed"]
+claims_specimens = [
+  "spec-test/sim-storage/crates/sim-table-sealed/src/tests",
+]
+supports = [
+  "feature/sim-storage/table-dir-backends",
+]
+
+[[feature]]
 id = "feature/sim-storage/table-dir-backends"
 title = "Table and Dir backends"
-summary = "Provide hash, lazy, override, mounted, and list-backed Table/Dir implementations for reusable storage libraries."
+summary = "Provide hash, database, mounted, and view Table/Dir implementations, with honest linearizable compare-exchange where the backend can establish one atomic boundary."
 owner = "crate/sim-table-hash"
 audiences = ["code", "framework"]
-guidance = "Use this row when selecting or adding a storage backend for Table and Dir contracts."
+guidance = "Use compare-exchange on hash, database, or a mounted supporting backend for leases and claims; absent, stored nil, delete, and value are distinct. Lazy, override, HTTP, and other views return Unsupported unless they can prove one linearization point."
 claims_anchors = [
   "anchor/crate/sim-list-cell",
   "anchor/crate/sim-list-lazy",
@@ -32,10 +76,25 @@ claims_anchors = [
   "anchor/runtime-lib/sim-table-lazy/lazy-table-lib",
   "anchor/runtime-lib/sim-table-override/override-table-lib",
 ]
+claims_specimens = ["spec-test/sim-storage/crates/sim-table-hash/src/tests"]
+
+[[feature]]
+id = "feature/sim-storage/relation-table-dir-projection"
+title = "Relation-backed Table/Dir and keyed query views"
+summary = "Project a D9 node relation as a transactional Table/Dir namespace and admitted uniquely keyed query results as deterministic read-only tables."
+owner = "crate/sim-table-relation"
+audiences = ["code", "framework"]
+guidance = "Compose RelationDir with sim-table-core paths and MountedDir; retain codec identity, canonical Table CAS publication, and independent relation and Table/Dir capabilities. Use RelationView only with a non-null admitted unique key projection."
+claims_anchors = ["anchor/crate/sim-table-relation"]
 claims_specimens = [
+  "spec-test/sim-storage/crates/sim-table-relation/src/tests",
   "spec-test/sim-storage/crates/sim-table-override/src/install",
 ]
-
+supports = [
+  "feature/sim-storage/table-dir-backends",
+  "feature/sim-storage/mounted-table-dir-namespace",
+  "feature/sim-foundation/table-dir-core",
+]
 [[feature]]
 id = "feature/sim-storage/mounted-table-dir-namespace"
 title = "Mounted Table/Dir namespace"
@@ -57,18 +116,41 @@ supports = [
 [[feature]]
 id = "feature/sim-storage/host-storage-primitives"
 title = "Host storage primitives"
-summary = "Connect file, database, and HTTP storage crates to the shared Table and Dir backend shape."
-owner = "crate/sim-table-fs"
+summary = "Define the portable HostDirPort boundary used by Table/Dir policy, including byte-level compare-exchange at the platform-owned atomic publication boundary."
+owner = "crate/sim-storage-port"
 audiences = ["code", "framework"]
-guidance = "Use this row when a host primitive reads or writes through a storage-backed table."
+guidance = "Use HostDirPort compare-exchange for atomic leaf publication; keep locks, native paths, handles, filesystem semantics, and physical crash tests in a platform capsule. sim-table-http retains its Table/Dir API but delegates generic blocking HTTP framing, caps, deadlines, TLS policy, and sensitive headers to feature/sim-foundation/blocking-http-client."
 claims_anchors = [
   "anchor/crate/sim-table-db",
-  "anchor/crate/sim-table-fs",
+  "anchor/crate/sim-storage-port",
   "anchor/crate/sim-table-http",
 ]
-claims_specimens = [
-  "spec-test/sim-storage/crates/sim-table-fs/src/tests/table",
+claims_specimens = ["spec-test/sim-storage/crates/sim-table-db/src/tests"]
+
+[[feature]]
+id = "feature/sim-storage/bounded-relation-site"
+title = "Bounded logical relation site"
+summary = "Realize sealed checked relational plans through a provider-neutral, capability-gated, bounded host effect seam."
+owner = "crate/sim-relation-site"
+audiences = ["code", "framework"]
+guidance = "Compose this site with relation plan and migration admission. Providers validate opaque locators internally and receive no text execution surface; callers receive typed pushed rows and redacted receipts."
+claims_anchors = [
+  "anchor/crate/sim-relation-site",
+  "anchor/runtime-lib/sim-relation-site/relation-site-lib",
 ]
+claims_specimens = [
+  "spec-test/sim-storage/crates/sim-relation-site/src/tests",
+]
+
+[[feature]]
+id = "feature/sim-storage/sqlite-relation-locator"
+title = "Closed SQLite relation locator and driver identity"
+summary = "Admit only memory or capability-bearing preopened storage references and one canonical SQLite provider registration without exposing native paths or SQL."
+owner = "crate/sim-relation-site"
+audiences = ["code", "framework"]
+guidance = "Use StorageLocator and DriverManifest at the logical relation boundary. A selected platform capsule resolves preopened references and owns all driver values, paths, prepared text, and provider mechanics."
+claims_specimens = ["spec-test/sim-storage/crates/sim-relation-site/src/sqlite_locator_tests"]
+supports = ["feature/sim-storage/bounded-relation-site"]
 
 [[feature]]
 id = "feature/sim-storage/contract-emitter"
@@ -82,6 +164,76 @@ claims_anchors = [
 ]
 supports = [
   "feature/sim-storage/table-dir-backends",
+]
+
+[[feature]]
+id = "feature/sim-storage/relation-command"
+title = "Checked relation command library"
+summary = "Discover and operate loaded relational sites through named schemas, migrations, checked plans, explicit product authorization, and bounded Table/Dir output without a raw SQL escape hatch."
+owner = "crate/sim-lib-relation-cli"
+audiences = ["user", "code", "framework"]
+guidance = "Load this library through sim relation. Compose provider sessions behind RelationCommands; keep native paths, SQL text, and provider mechanics inside platform capsules. Mutation, adoption, and apply operations must bind --authorize to the exact --expect-plan identity rendered before action."
+claims_anchors = [
+  "anchor/crate/sim-lib-relation-cli",
+  "anchor/export/sim-lib-relation-cli/cli/main/relation",
+  "anchor/runtime-lib/sim-lib-relation-cli/relation-command-lib",
+]
+claims_specimens = [
+  "spec-test/sim-storage/crates/sim-lib-relation-cli/src/tests",
+]
+supports = [
+  "feature/sim-foundation/relation-core",
+  "feature/sim-foundation/relation-schema",
+  "feature/sim-foundation/relation-plan",
+  "feature/sim-foundation/relation-migrate",
+  "feature/sim-shape/relation-shape",
+  "feature/sim-codecs/sql-projection",
+  "feature/sim-storage/bounded-relation-site",
+  "feature/sim-storage/sqlite-relation-locator",
+  "feature/sim-storage/relation-table-dir-projection",
+  "feature/sim-storage/mounted-table-dir-namespace",
+  "feature/sim-office/office-site-workflows",
+  "feature/sim-ledger/ledger-libraries",
+  "feature/sim-sdk/relation-composition",
+]
+
+[[route]]
+id = "route/add-relation-provider"
+task = "Add a logical relation provider"
+audiences = ["code", "framework"]
+steps = [
+  { feature = "feature/sim-storage/bounded-relation-site", why = "The site owns placement, checked provider traits, bounds, capabilities, effects, transactions, and receipts." },
+  { specimen = "spec-test/sim-storage/crates/sim-relation-site/src/tests", why = "The recording provider proves the effect seam without implementing SQL or relational evaluation." },
+]
+
+[[route]]
+id = "route/operate-relational-data"
+task = "Discover inspect migrate query mutate or mount a database relation schema SQLite site or SQL projection"
+audiences = ["user", "code", "framework"]
+steps = [
+  { feature = "feature/sim-foundation/relation-core", why = "The provider-neutral logical relation framework owns rows, domains, and identities." },
+  { feature = "feature/sim-shape/relation-shape", why = "Shape admits relation values and command artifacts." },
+  { feature = "feature/sim-codecs/sql-projection", why = "The SQL codec is a projection of checked plans, never a command escape hatch." },
+  { feature = "feature/sim-foundation/relation-migrate", why = "Migration admission and drift checks precede physical action." },
+  { feature = "feature/sim-storage/bounded-relation-site", why = "The site contract gates provider effects and bounds." },
+  { feature = "feature/sim-storage/sqlite-relation-locator", why = "SQLite is selected through a closed provider identity and opaque locator." },
+  { feature = "feature/sim-storage/relation-table-dir-projection", why = "Results render through standard Table/Dir composition." },
+  { feature = "feature/sim-office/office-site-workflows", why = "Office workflows reuse relational sites rather than copying storage behavior." },
+  { feature = "feature/sim-ledger/ledger-libraries", why = "Ledger composition supplies durable domain reuse." },
+  { feature = "feature/sim-sdk/relation-composition", why = "The SDK facade exposes the supported relation composition." },
+  { feature = "feature/sim-storage/relation-command", why = "The loadable command parses only named, authorized, bounded operations." },
+  { specimen = "spec-test/sim-storage/crates/sim-lib-relation-cli/src/tests", why = "Checked specimens cover creation, inspection, adoption, drift refusal, query, mutation, providers, and mounts." },
+]
+
+[[route]]
+id = "route/seal-table-dir-backend"
+title = "Seal a Table/Dir backend"
+audiences = ["framework", "code"]
+steps = [
+  { feature = "feature/sim-foundation/table-dir-core", why = "Keep the canonical Table and Dir contracts." },
+  { feature = "feature/sim-storage/table-dir-backends", why = "Select the persistent backend that continues to own storage semantics." },
+  { feature = "feature/sim-storage/sealed-table-decorator", why = "Inject host-owned key and nonce services, then wrap the backend with lane-bound authenticated encryption." },
+  { specimen = "spec-test/sim-storage/crates/sim-table-sealed/src/tests", why = "The checked fixture proves the host/Lisp authority boundary, persistent Dir composition, and fail-closed authenticated bindings." },
 ]
 
 [[route]]

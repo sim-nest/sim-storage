@@ -42,7 +42,7 @@ pub type UnfoldStep<S> = dyn Fn(&mut Cx, &S) -> Result<(Value, S)> + Send + Sync
 /// use sim_kernel::{Cx, DefaultFactory, EagerPolicy, Factory, ListValue, LengthResult};
 /// use sim_list_lazy::LazyConsList;
 ///
-/// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+/// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory), sim_kernel::HandleSeed::new(1));
 ///
 /// // The empty list.
 /// let empty = LazyConsList::empty();
@@ -313,7 +313,7 @@ impl ListValue for LazyConsList {
 /// use sim_kernel::{Cx, DefaultFactory, EagerPolicy, Factory, ListValue, Value};
 /// use sim_list_lazy::unfold;
 ///
-/// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+/// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory), sim_kernel::HandleSeed::new(1));
 ///
 /// // An unbounded stream of `true` values; take the first three.
 /// let xs = unfold((), |cx, _seed| Ok((cx.factory().bool(true)?, ())));

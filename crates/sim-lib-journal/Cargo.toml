@@ -1,0 +1,23 @@
+[package]
+name = "sim-lib-journal"
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+description = "Domain-free atomic content journal contract for SIM."
+readme = "README.md"
+publish = true
+repository = "https://github.com/sim-nest/sim-storage"
+homepage = "https://github.com/sim-nest/sim-storage"
+
+[package.metadata.sim-recipes]
+policy = "rustdoc"
+reason = "The journal law and model interleavings are checked in crate tests and rustdoc."
+
+[dependencies]
+sha2 = "0.10"
+sim-kernel = { version = "0.3.0" }
+sim-storage-port = { version = "0.1.0", path = "../sim-storage-port" }
+thiserror = "2"
+
+[lints]
+workspace = true

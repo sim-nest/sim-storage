@@ -1,0 +1,12 @@
+id = "sealed-table-contract"
+title = "Use only the Table/Dir surface"
+codec = "lisp"
+setup = "setup.siml"
+purpose = "purpose.md"
+order = 10
+tags = ["table", "dir", "sealed", "authenticated-encryption", "host-injected"]
+requires = ["core"]
+
+[[expect]]
+form = 0
+result = "(operations (get set has del keys entries len clear mkdir opendir rmdir is-dir) crypto-operations ())"

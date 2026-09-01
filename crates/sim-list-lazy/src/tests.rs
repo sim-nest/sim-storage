@@ -7,8 +7,8 @@ use std::{
 };
 
 use sim_kernel::{
-    Cx, DefaultFactory, EagerPolicy, LengthResult, ListBackend, ListSequence, ObjectEncoding,
-    Value, read_construct_capability, seq_next,
+    Cx, DefaultFactory, EagerPolicy, HandleSeed, LengthResult, ListBackend, ListSequence,
+    ObjectEncoding, Value, read_construct_capability, seq_next,
 };
 
 use crate::{
@@ -18,7 +18,11 @@ use crate::{
 };
 
 fn test_cx() -> Cx {
-    Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory))
+    Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        HandleSeed::new(1),
+    )
 }
 
 fn num(cx: &mut Cx, n: i64) -> Value {

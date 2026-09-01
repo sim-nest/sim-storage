@@ -365,6 +365,29 @@ impl Table for MountedDir {
         require_table_value(&backing, "table/mount: backing node is not a Table")?.del(cx, key)
     }
 
+    fn compare_exchange(
+        &self,
+        cx: &mut Cx,
+        key: Symbol,
+        expected: sim_kernel::TableExpected,
+        replacement: sim_kernel::TableReplacement,
+    ) -> Result<sim_kernel::TableCompareExchange> {
+        self.check_no_mount_child(&key, "compare-exchange")?;
+        let node = self.resolve_current(cx)?;
+        let backing = Self::backed_table(node)?.ok_or_else(|| {
+            Error::Eval(format!(
+                "table/mount: {} has no writable backing table",
+                format_path(&self.path)
+            ))
+        })?;
+        require_table_value(&backing, "table/mount: backing node is not a Table")?.compare_exchange(
+            cx,
+            key,
+            expected,
+            replacement,
+        )
+    }
+
     fn keys(&self, cx: &mut Cx) -> Result<Vec<Symbol>> {
         let mut keys = BTreeSet::new();
         let node = self.resolve_current(cx)?;

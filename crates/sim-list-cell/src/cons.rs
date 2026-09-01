@@ -32,7 +32,7 @@ use crate::citizen::cons_list_class_symbol;
 /// use sim_kernel::{Cx, DefaultFactory, EagerPolicy, Factory, ListValue, LengthResult};
 /// use sim_list_cell::ConsList;
 ///
-/// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+/// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory), sim_kernel::HandleSeed::new(1));
 ///
 /// // The empty list.
 /// let empty = ConsList::from_vec(vec![]);
