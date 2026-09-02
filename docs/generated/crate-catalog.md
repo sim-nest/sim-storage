@@ -6,13 +6,19 @@ Generated from Cargo metadata by `xtask crate-catalog v1`.
 
 | Package | Publish | Targets | Description |
 | --- | --- | --- | --- |
+| `sim-lib-journal` | `true` | `lib` | Domain-free atomic content journal contract for SIM. |
+| `sim-lib-relation-cli` | `true` | `lib` | Loadable, checked relational command surface for SIM. |
 | `sim-list-cell` | `true` | `lib` | SIM workspace package for sim list cell. |
 | `sim-list-lazy` | `true` | `lib` | SIM workspace package for sim list lazy. |
+| `sim-mutual-projection` | `true` | `lib` | Two-key copied projections without shared archive authority. |
+| `sim-relation-site` | `true` | `lib` | Bounded provider-neutral relation effect site for SIM. |
+| `sim-storage-port` | `true` | `lib` | Portable host-directory port contracts for SIM storage. |
 | `sim-table-db` | `true` | `lib` | SIM workspace package for sim table db. |
-| `sim-table-fs` | `true` | `custom-build, lib` | SIM workspace package for sim table fs. |
 | `sim-table-hash` | `true` | `lib` | SIM workspace package for sim table hash. |
 | `sim-table-http` | `true` | `custom-build, lib` | Capability-gated HTTP table directory backend for SIM. |
 | `sim-table-lazy` | `true` | `lib` | SIM workspace package for sim table lazy. |
 | `sim-table-mount` | `true` | `custom-build, lib` | Mounted Table and Dir namespace backend for SIM. |
 | `sim-table-override` | `true` | `lib` | SIM workspace package for sim table override. |
+| `sim-table-relation` | `true` | `lib` | Relation-backed Table/Dir namespace and keyed read-only relation views for SIM. |
+| `sim-table-sealed` | `true` | `lib` | Authenticated encryption decorator for SIM Table and Dir backends. |
 | `xtask` | `false` | `bin` | SIM workspace package for xtask. |
