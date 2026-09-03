@@ -1,6 +1,6 @@
 [package]
 name = "sim-relation-site"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "MPL-2.0"
 description = "Bounded provider-neutral relation effect site for SIM."
@@ -14,14 +14,14 @@ policy = "rustdoc"
 reason = "The bounded site specimen is checked in crate tests and rustdoc."
 
 [dependencies]
-sim-kernel = { version = "0.3.0" }
-sim-relation-core = { version = "0.1.0" }
-sim-relation-migrate = { version = "0.1.0" }
-sim-relation-plan = { version = "0.1.0" }
+sim-kernel = { version = "0.4.0" }
+sim-relation-core = { version = "0.2.0" }
+sim-relation-migrate = { version = "0.2.0" }
+sim-relation-plan = { version = "0.2.0" }
 
 [dev-dependencies]
-sim-kernel = { version = "0.3.0", features = ["test-support"] }
-sim-relation-schema = { version = "0.1.0" }
+sim-kernel = { version = "0.4.0", features = ["test-support"] }
+sim-relation-schema = { version = "0.2.0" }
 
 [lints]
 workspace = true
