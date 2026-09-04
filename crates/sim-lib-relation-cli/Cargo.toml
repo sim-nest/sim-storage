@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-relation-cli"
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 license.workspace = true
 description = "Loadable, checked relational command surface for SIM."
@@ -10,7 +10,7 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
-sim-kernel = { version = "0.3.0" }
+sim-kernel = { version = "0.4.0" }
 
 [lints]
 workspace = true
