@@ -207,6 +207,44 @@ fn generated_owner_region_and_work_bounds_fail_closed() {
 }
 
 #[test]
+fn line_region_refuses_out_of_region_content_and_mode() {
+    let spec = ArtifactFacet::new(
+        id("repo/file"),
+        id("owner/crate"),
+        RegionSelector::LineRange {
+            path: "src/lib.rs".into(),
+            start: 1,
+            end: 2,
+        },
+        id("projection/file"),
+        MergePolicy::Linewise {
+            max_lines: 16,
+            max_cells: 1_024,
+        },
+        id("disclosure/public"),
+        RegionOwnership::Authored,
+    )
+    .unwrap();
+    let base_image = file("one\ntwo\nthree\n");
+    let base = BaseImage::check(&spec, base_image.clone()).unwrap();
+    let observed = ObservedImage::check(&spec, base_image).unwrap();
+    let outside = IntendedImage::check(&spec, file("ONE\ntwo\nthree\n")).unwrap();
+    assert_eq!(
+        merge_facet(&spec, &base, &observed, &outside),
+        Err(FacetError::OutOfRegion)
+    );
+    let mode = IntendedImage::check(
+        &spec,
+        PortableImage::file("one\nTWO\nthree\n", 0o755).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        merge_facet(&spec, &base, &observed, &mode),
+        Err(FacetError::OutOfRegion)
+    );
+}
+
+#[test]
 fn transition_classifier_is_the_shared_whole_file_law() {
     let base = file("base");
     let intended = file("post");
