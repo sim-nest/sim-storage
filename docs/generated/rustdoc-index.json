@@ -2,6 +2,13 @@
   "generator": "xtask repo-contract v1",
   "packages": [
     {
+      "crate_name": "sim_artifact_facet",
+      "group": "workspace",
+      "manifest": "crates/sim-artifact-facet/Cargo.toml",
+      "package": "sim-artifact-facet",
+      "summary": "Pure artifact-facet comparison and bounded three-way merge."
+    },
+    {
       "crate_name": "sim_lib_journal",
       "group": "workspace",
       "manifest": "crates/sim-lib-journal/Cargo.toml",

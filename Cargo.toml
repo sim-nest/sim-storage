@@ -2,6 +2,7 @@
 [workspace]
 resolver = "3"
 members = [
+  "crates/sim-artifact-facet",
   "crates/sim-lib-journal",
   "crates/sim-mutual-projection",
   "crates/sim-lib-relation-cli",

@@ -1,6 +1,11 @@
 {
   "schema": "sim.card-index.v1",
   "cards": [
+    "crates/sim-artifact-facet/recipes/01-basics/chapter.toml",
+    "crates/sim-artifact-facet/recipes/01-basics/pure-three-way/purpose.md",
+    "crates/sim-artifact-facet/recipes/01-basics/pure-three-way/recipe.toml",
+    "crates/sim-artifact-facet/recipes/01-basics/pure-three-way/setup.siml",
+    "crates/sim-artifact-facet/recipes/book.toml",
     "crates/sim-table-http/recipes/01-basics/chapter.toml",
     "crates/sim-table-http/recipes/01-basics/http-get/purpose.md",
     "crates/sim-table-http/recipes/01-basics/http-get/recipe.toml",
