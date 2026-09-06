@@ -117,7 +117,7 @@ pub fn merge_facet(
         }
         TransitionState::Foreign => {}
     }
-    match spec.merge {
+    match spec.merge_policy() {
         MergePolicy::Exact => Ok(MergeOutcome::Conflict {
             reason: ConflictReason::BothChanged,
         }),
@@ -129,8 +129,8 @@ pub fn merge_facet(
             base.image(),
             observed.image(),
             intended.image(),
-            max_lines,
-            max_cells,
+            *max_lines,
+            *max_cells,
         ),
     }
 }
@@ -140,7 +140,7 @@ fn verify_intended_region(
     base: &PortableImage,
     intended: &PortableImage,
 ) -> Result<(), FacetError> {
-    let RegionSelector::LineRange { start, end, .. } = spec.region else {
+    let RegionSelector::LineRange { start, end, .. } = spec.region() else {
         return Ok(());
     };
     let (Some(base_bytes), Some(intended_bytes)) = (&base.bytes, &intended.bytes) else {
@@ -153,8 +153,8 @@ fn verify_intended_region(
     let intended_text = std::str::from_utf8(intended_bytes).map_err(|_| FacetError::OutOfRegion)?;
     let base_lines = lines(base_text);
     let intended_lines = lines(intended_text);
-    let start = start as usize;
-    let end = end as usize;
+    let start = *start as usize;
+    let end = *end as usize;
     if end > base_lines.len() {
         return Err(FacetError::OutOfRegion);
     }
