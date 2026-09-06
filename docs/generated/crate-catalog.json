@@ -1,7 +1,20 @@
 {
   "generator": "xtask crate-catalog v1",
-  "package_count": 16,
+  "package_count": 17,
   "packages": [
+    {
+      "description": "Pure role-safe artifact facet comparison and bounded three-way merge for SIM.",
+      "generated_readme": false,
+      "manifest": "crates/sim-artifact-facet/Cargo.toml",
+      "name": "sim-artifact-facet",
+      "publish": "true",
+      "readme": "crates/sim-artifact-facet/README.md",
+      "root": "crates/sim-artifact-facet",
+      "target_kinds": [
+        "lib",
+        "test"
+      ]
+    },
     {
       "description": "Domain-free atomic content journal contract for SIM.",
       "generated_readme": false,
