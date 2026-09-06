@@ -1,0 +1,3 @@
+title = "Pure merge"
+order = 10
+summary = "Compare base, observed, and intended images within one owned region."

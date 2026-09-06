@@ -14,6 +14,16 @@ major_entrypoints = "advisory"
 frameworks = "advisory"
 
 [[feature]]
+id = "feature/sim-storage/artifact-facet-law"
+title = "Role-safe artifact facet law"
+summary = "Classify and merge exact base, observed, and intended artifact images under singular owner, region, generated-owner, disclosure, and bounded merge declarations."
+owner = "crate/sim-artifact-facet"
+audiences = ["code", "framework"]
+guidance = "Reuse this pure law from packet checking and durable mutation rather than implementing another three-way comparison. Bind filesystem durability, rollback, Git state, and audit policy in higher adapters."
+claims_anchors = ["anchor/crate/sim-artifact-facet"]
+claims_specimens = ["spec-test/sim-storage/crates/sim-artifact-facet/tests/facet_law"]
+
+[[feature]]
 id = "feature/sim-storage/atomic-content-journal"
 title = "Atomic content journal"
 summary = "Crash-durably publish immutable content and atomically advance one gapless, fenced journal head with bounded verified reopen and disposable read-only projections."

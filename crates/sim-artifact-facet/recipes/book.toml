@@ -1,0 +1,5 @@
+book = "artifact-facet"
+title = "Artifact facets"
+summary = "Role-safe pure three-way artifact comparison descriptors."
+order = 356
+chapters = ["01-basics"]

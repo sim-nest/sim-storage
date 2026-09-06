@@ -1,0 +1,8 @@
+id = "pure-three-way"
+title = "Pure three-way facet descriptor"
+codec = "lisp"
+setup = "setup.siml"
+purpose = "purpose.md"
+order = 10
+tags = ["artifact", "facet", "merge", "sandbox-descriptor"]
+requires = ["artifact-facet", "codec/lisp"]

@@ -4,6 +4,11 @@
     {
       "features": [],
       "group": "workspace",
+      "package": "sim-artifact-facet"
+    },
+    {
+      "features": [],
+      "group": "workspace",
       "package": "sim-lib-journal"
     },
     {

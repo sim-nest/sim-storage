@@ -1,3 +1,8 @@
+{"kind":"recipe","path":"crates/sim-artifact-facet/recipes/01-basics/chapter.toml"}
+{"kind":"recipe","path":"crates/sim-artifact-facet/recipes/01-basics/pure-three-way/purpose.md"}
+{"kind":"recipe","path":"crates/sim-artifact-facet/recipes/01-basics/pure-three-way/recipe.toml"}
+{"kind":"recipe","path":"crates/sim-artifact-facet/recipes/01-basics/pure-three-way/setup.siml"}
+{"kind":"recipe","path":"crates/sim-artifact-facet/recipes/book.toml"}
 {"kind":"recipe","path":"crates/sim-table-http/recipes/01-basics/chapter.toml"}
 {"kind":"recipe","path":"crates/sim-table-http/recipes/01-basics/http-get/purpose.md"}
 {"kind":"recipe","path":"crates/sim-table-http/recipes/01-basics/http-get/recipe.toml"}

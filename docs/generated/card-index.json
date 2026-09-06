@@ -1,11 +1,17 @@
 {
-  "card_count": 6,
+  "card_count": 7,
   "cards": [
     {
       "id": "browse/catalog",
       "kind": "browse-root",
       "owner": "workspace",
       "summary": "root browse catalog"
+    },
+    {
+      "id": "cookbook/artifact-facet",
+      "kind": "cookbook-recipe",
+      "owner": "sim-artifact-facet",
+      "summary": "Role-safe pure three-way artifact comparison descriptors."
     },
     {
       "id": "cookbook/storage/table-http",
