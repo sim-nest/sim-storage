@@ -153,19 +153,19 @@ pub enum RegionOwnership {
 pub struct ArtifactFacet {
     id: FacetId,
     /// Containing artifact.
-    pub artifact: ArtifactId,
+    artifact: ArtifactId,
     /// Sole authoritative owner.
-    pub owner: OwnerId,
+    owner: OwnerId,
     /// Exact selected region.
-    pub region: RegionSelector,
+    region: RegionSelector,
     /// Semantic image projection.
-    pub projection: ProjectionId,
+    projection: ProjectionId,
     /// Registered pure merge policy.
-    pub merge: MergePolicy,
+    merge: MergePolicy,
     /// Externally supplied disclosure decision.
-    pub disclosure: DisclosureDecisionId,
+    disclosure: DisclosureDecisionId,
     /// Authored or generated ownership class.
-    pub ownership: RegionOwnership,
+    ownership: RegionOwnership,
 }
 
 impl ArtifactFacet {
@@ -215,6 +215,41 @@ impl ArtifactFacet {
     /// Returns the facet identity.
     pub const fn id(&self) -> &FacetId {
         &self.id
+    }
+
+    /// Returns the containing artifact.
+    pub const fn artifact(&self) -> &ArtifactId {
+        &self.artifact
+    }
+
+    /// Returns the sole authoritative owner.
+    pub const fn owner(&self) -> &OwnerId {
+        &self.owner
+    }
+
+    /// Returns the exact selected region.
+    pub const fn region(&self) -> &RegionSelector {
+        &self.region
+    }
+
+    /// Returns the semantic image projection.
+    pub const fn projection(&self) -> &ProjectionId {
+        &self.projection
+    }
+
+    /// Returns the registered pure merge policy.
+    pub const fn merge_policy(&self) -> &MergePolicy {
+        &self.merge
+    }
+
+    /// Returns the externally supplied disclosure decision.
+    pub const fn disclosure(&self) -> &DisclosureDecisionId {
+        &self.disclosure
+    }
+
+    /// Returns the authored or generated ownership class.
+    pub const fn ownership(&self) -> &RegionOwnership {
+        &self.ownership
     }
 }
 

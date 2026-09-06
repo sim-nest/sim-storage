@@ -4,7 +4,8 @@
 owned artifact region. A facet fixes the artifact, owner, region, semantic
 projection, merge policy, disclosure decision, and generated-owner status
 before base, observed, and intended images are admitted into distinct Rust
-roles.
+roles. Every identity-bearing facet field becomes read-only at construction, so
+the facet id and the specification inspected by consumers cannot diverge.
 
 The law preserves an observed foreign edit when a proposal is unchanged,
 accepts an already-true result, applies an intended image when the base is
