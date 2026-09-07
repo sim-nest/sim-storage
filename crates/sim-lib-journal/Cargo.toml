@@ -14,7 +14,7 @@ policy = "rustdoc"
 reason = "The public persistent-object and journal laws are exercised by the crate's checked conformance tests and documented API."
 
 [dependencies]
-sha2 = "0.10"
+sha2 = "0.11"
 sim-kernel = { version = "0.4.0" }
 sim-storage-port = { version = "0.2.0", path = "../sim-storage-port" }
 thiserror = "2"
