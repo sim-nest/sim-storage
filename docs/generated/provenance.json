@@ -3,10 +3,10 @@
   "generated_by": "cargo run -p xtask -- simdoc",
   "generation_timestamp": "2026-07-16T00:13:38+02:00",
   "generator": "xtask repo-contract v1",
-  "git_commit": "b1209ed64b13548a33770270b30ef808669b81a1",
+  "git_commit": "eb77ee9047862c0165b6cf81f738ae21d8d47099",
   "repo": "sim-storage",
   "schema": "sim.provenance.v1",
-  "source_commit": "b1209ed64b13548a33770270b30ef808669b81a1",
+  "source_commit": "eb77ee9047862c0165b6cf81f738ae21d8d47099",
   "source_remote": "https://github.com/sim-nest/sim-storage",
   "validation_commands": [
     "cargo fmt --all --check",
@@ -19,9 +19,9 @@
     "cargo run -p xtask -- validation-matrix --check --repo .",
     "cargo run -p xtask -- crate-catalog --check --repo ."
   ],
-  "workspace_hash": "bfa03086d84a8ff3",
+  "workspace_hash": "33cea61fdf434137",
   "workspace_hash_algorithm": "fnv1a64",
-  "workspace_hash_input_count": 126,
+  "workspace_hash_input_count": 127,
   "workspace_hash_inputs": [
     "Cargo.toml",
     "crates/sim-artifact-facet/Cargo.toml",
@@ -47,6 +47,7 @@
     "crates/sim-lib-journal/src/persistent.rs",
     "crates/sim-lib-journal/src/projection.rs",
     "crates/sim-lib-journal/src/replay.rs",
+    "crates/sim-lib-journal/src/snapshot.rs",
     "crates/sim-lib-journal/src/tests/native.rs",
     "crates/sim-lib-journal/src/tests.rs",
     "crates/sim-lib-journal/src/verify.rs",

@@ -18,6 +18,8 @@ directory order and orphan leaves carry no authority.
 `PersistentObjectStore` provides owned-return `Datum` persistence over that
 same object backend. `StoredDatumRef` keeps the semantic and storage identities
 separate, and its derived correspondence index can be rebuilt and verified.
+`Journal::verified_snapshot` returns entries and their canonical payload Datums
+from one verified backend read, without exposing physical storage state.
 
 ```rust
 use std::sync::Arc;

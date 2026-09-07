@@ -4,7 +4,7 @@ In one line: Domain-free atomic content journal contract for SIM.
 
 ## What it gives you
 
-`sim-lib-journal` gives every SIM domain the same small foundation for immutable objects, fenced writers, atomic batches, verified replay, and disposable read-only projections. A deterministic memory backend is supplied as a law reference, never as durable production storage. The contract keeps inputs, outputs, limits, and refusal cases explicit, so callers can compose the capability without acquiring unrelated host, transport, or product authority. Stable records make the result suitable for tests, inspection, and deterministic integration.
+`sim-lib-journal` gives every SIM domain the same small foundation for immutable objects, fenced writers, atomic batches, verified replay, internally consistent semantic snapshots, and disposable read-only projections. A deterministic memory backend is supplied as a law reference, never as durable production storage. The contract keeps inputs, outputs, limits, and refusal cases explicit, so callers can compose the capability without acquiring unrelated host, transport, or product authority. Stable records make the result suitable for tests, inspection, and deterministic integration.
 
 ## Why you will be glad
 
