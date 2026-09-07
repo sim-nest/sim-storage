@@ -1,4 +1,8 @@
-use crate::{Admission, JournalBackend, JournalError, JournalHead, Lease, StoredState};
+use crate::{
+    Admission, JournalBackend, JournalError, JournalHead, JournalObject, Lease, StoredDatumRef,
+    StoredState,
+};
+use sim_kernel::{ContentId, Datum};
 use std::sync::{Mutex, PoisonError};
 
 #[derive(Default)]
@@ -74,6 +78,10 @@ impl JournalBackend for MemoryBackend {
                 }
                 Some(_) => {}
                 None => {
+                    inner
+                        .state
+                        .datums
+                        .insert(object.id.clone(), object.datum().clone());
                     inner.state.objects.insert(object.id, object.bytes);
                 }
             }
@@ -99,5 +107,58 @@ impl JournalBackend for MemoryBackend {
         };
         inner.state.head = Some(head.clone());
         Ok(head)
+    }
+
+    fn put_datum(&self, object: JournalObject) -> Result<StoredDatumRef, JournalError> {
+        object.verify()?;
+        let storage_bytes = object.storage_bytes()?;
+        let reference = StoredDatumRef {
+            meaning: object.id.clone(),
+            storage: crate::object::storage_id(&storage_bytes),
+        };
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_: PoisonError<_>| JournalError::Backend("memory lock poisoned".into()))?;
+        match inner.state.datums.get(&object.id) {
+            Some(value) if value != object.datum() => return Err(JournalError::ConflictingObject),
+            _ => {
+                let datum = object.datum().clone();
+                inner.state.objects.insert(object.id.clone(), object.bytes);
+                inner.state.datums.insert(object.id, datum);
+            }
+        }
+        Ok(reference)
+    }
+
+    fn get_datum(&self, meaning: &ContentId) -> Result<Datum, JournalError> {
+        self.inner
+            .lock()
+            .map_err(|_: PoisonError<_>| JournalError::Backend("memory lock poisoned".into()))?
+            .state
+            .datums
+            .get(meaning)
+            .cloned()
+            .ok_or_else(|| JournalError::MissingSemanticObject(meaning.clone()))
+    }
+
+    fn rebuild_datum_index(&self) -> Result<Vec<StoredDatumRef>, JournalError> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_: PoisonError<_>| JournalError::Backend("memory lock poisoned".into()))?;
+        inner
+            .state
+            .datums
+            .iter()
+            .map(|(meaning, datum)| {
+                let object = JournalObject::from_datum(datum.clone())?;
+                let bytes = object.storage_bytes()?;
+                Ok(StoredDatumRef {
+                    meaning: meaning.clone(),
+                    storage: crate::object::storage_id(&bytes),
+                })
+            })
+            .collect()
     }
 }

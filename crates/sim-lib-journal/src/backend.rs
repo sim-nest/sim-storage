@@ -1,5 +1,5 @@
-use crate::{JournalEntry, JournalError, JournalHead, JournalObject, Lease};
-use sim_kernel::ContentId;
+use crate::{JournalEntry, JournalError, JournalHead, JournalObject, Lease, StoredDatumRef};
+use sim_kernel::{ContentId, Datum};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -7,6 +7,8 @@ use std::sync::Arc;
 #[derive(Clone, Debug, Default)]
 pub struct StoredState {
     pub objects: BTreeMap<ContentId, Vec<u8>>,
+    /// Verified semantic values keyed by their kernel Datum identity.
+    pub datums: BTreeMap<ContentId, Datum>,
     pub entries: BTreeMap<u64, JournalEntry>,
     pub head: Option<JournalHead>,
 }
@@ -26,6 +28,13 @@ pub trait JournalBackend: Send + Sync {
     fn acquire_lease(&self) -> Result<Lease, JournalError>;
     fn read_state(&self) -> Result<StoredState, JournalError>;
     fn admit(&self, admission: Admission) -> Result<JournalHead, JournalError>;
+    /// Durably publishes one immutable semantic object without making it a
+    /// journal retention root.
+    fn put_datum(&self, object: JournalObject) -> Result<StoredDatumRef, JournalError>;
+    /// Resolves one semantic object by meaning, returning an owned Datum.
+    fn get_datum(&self, meaning: &ContentId) -> Result<Datum, JournalError>;
+    /// Rebuilds and verifies the derived semantic-to-storage correspondence.
+    fn rebuild_datum_index(&self) -> Result<Vec<StoredDatumRef>, JournalError>;
 }
 
 impl<T: JournalBackend + ?Sized> JournalBackend for Arc<T> {
@@ -37,5 +46,14 @@ impl<T: JournalBackend + ?Sized> JournalBackend for Arc<T> {
     }
     fn admit(&self, admission: Admission) -> Result<JournalHead, JournalError> {
         (**self).admit(admission)
+    }
+    fn put_datum(&self, object: JournalObject) -> Result<StoredDatumRef, JournalError> {
+        (**self).put_datum(object)
+    }
+    fn get_datum(&self, meaning: &ContentId) -> Result<Datum, JournalError> {
+        (**self).get_datum(meaning)
+    }
+    fn rebuild_datum_index(&self) -> Result<Vec<StoredDatumRef>, JournalError> {
+        (**self).rebuild_datum_index()
     }
 }

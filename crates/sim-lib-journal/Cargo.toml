@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-journal"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "MPL-2.0"
 description = "Domain-free atomic content journal contract for SIM."
@@ -11,7 +11,7 @@ homepage = "https://github.com/sim-nest/sim-storage"
 
 [package.metadata.sim-recipes]
 policy = "rustdoc"
-reason = "The journal law and model interleavings are checked in crate tests and rustdoc."
+reason = "The public persistent-object and journal laws are exercised by the crate's checked conformance tests and documented API."
 
 [dependencies]
 sha2 = "0.10"
