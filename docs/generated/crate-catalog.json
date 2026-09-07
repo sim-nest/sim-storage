@@ -24,7 +24,9 @@
       "readme": "crates/sim-lib-journal/README.md",
       "root": "crates/sim-lib-journal",
       "target_kinds": [
-        "lib"
+        "example",
+        "lib",
+        "test"
       ]
     },
     {

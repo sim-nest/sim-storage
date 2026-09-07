@@ -7,7 +7,7 @@ Generated from Cargo metadata by `xtask crate-catalog v1`.
 | Package | Publish | Targets | Description |
 | --- | --- | --- | --- |
 | `sim-artifact-facet` | `true` | `lib, test` | Pure role-safe artifact facet comparison and bounded three-way merge for SIM. |
-| `sim-lib-journal` | `true` | `lib` | Domain-free atomic content journal contract for SIM. |
+| `sim-lib-journal` | `true` | `example, lib, test` | Domain-free atomic content journal contract for SIM. |
 | `sim-lib-relation-cli` | `true` | `lib` | Loadable, checked relational command surface for SIM. |
 | `sim-list-cell` | `true` | `lib` | SIM workspace package for sim list cell. |
 | `sim-list-lazy` | `true` | `lib` | SIM workspace package for sim list lazy. |
