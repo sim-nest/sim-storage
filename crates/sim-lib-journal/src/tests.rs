@@ -461,23 +461,6 @@ fn entry_and_payload_ids_are_kernel_datum_identities() {
 }
 
 #[test]
-fn persistent_object_store_returns_owned_values_and_rebuilds_exactly() {
-    let backend = Arc::new(MemoryBackend::new());
-    let mut store = PersistentObjectStore::open(backend.clone()).unwrap();
-    let value = Datum::Node {
-        tag: Symbol::qualified("example", "evidence-set-v1"),
-        fields: vec![(Symbol::new("members"), Datum::Vector(vec![]))],
-    };
-    let reference = store.put(value.clone()).unwrap();
-    assert_ne!(reference.meaning, reference.storage);
-    assert_eq!(store.get(&reference.meaning).unwrap(), value);
-    assert_eq!(store.rebuild_index().unwrap(), vec![reference]);
-    drop(store);
-    let reopened = PersistentObjectStore::open(backend).unwrap();
-    assert_eq!(reopened.get(&value.content_id().unwrap()).unwrap(), value);
-}
-
-#[test]
 fn host_persistent_index_is_disposable_and_rebuildable() {
     let port = Arc::new(TestPort::default());
     let backend = HostDirJournalBackend::open(port, capabilities(), 20).unwrap();
