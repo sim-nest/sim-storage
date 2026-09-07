@@ -1,49 +1,29 @@
+use crate::native_codec::*;
 use crate::{
-    Admission, JournalBackend, JournalEntry, JournalError, JournalHead, Lease, StoredState,
+    Admission, JournalBackend, JournalEntry, JournalError, JournalHead, JournalObject, Lease,
+    StoredDatumRef, StoredState,
 };
-use sim_kernel::{ContentId, Symbol};
+use sha2::{Digest, Sha256};
+use sim_kernel::{ContentId, Datum};
 use sim_storage_port::{HostDirErrorKind, HostDirPort, NeverCancel};
-use std::{collections::BTreeMap, sync::Arc};
-
-/// Evidence supplied by the concrete Table/Dir binding at construction.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct BackendCapabilities {
-    /// State-leaf compare-exchange is linearizable across coordinators.
-    pub linearizable_cas: bool,
-    /// Successful immutable-leaf writes carry the binding's durability receipt.
-    pub durable_publish: bool,
-}
-
-/// Stable crash-injection boundaries in the publication protocol.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Failpoint {
-    BeforeObjectPublish,
-    AfterObjectPublish,
-    AfterDurabilityReceipt,
-    BeforeCas,
-    AfterCas,
-    BeforeAcknowledgement,
-}
-
-impl Failpoint {
-    fn label(self) -> &'static str {
-        match self {
-            Self::BeforeObjectPublish => "before-object-publish",
-            Self::AfterObjectPublish => "after-object-publish",
-            Self::AfterDurabilityReceipt => "after-durability-receipt",
-            Self::BeforeCas => "before-cas",
-            Self::AfterCas => "after-cas",
-            Self::BeforeAcknowledgement => "before-acknowledgement",
-        }
-    }
-}
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 type FailHook = Arc<dyn Fn(Failpoint) -> bool + Send + Sync>;
+static NAMESPACE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Crash-durable journal composition over the canonical host-backed Table/Dir port.
 ///
-/// `state` contains both fence and head. Its one compare-exchange is the only
-/// publication linearization point. Objects and entries are immutable leaves.
+/// V1 storage is a read-only compatibility prefix. The first v2 lease verifies
+/// that prefix and atomically selects its descriptor, a higher fence, and a
+/// fresh namespace. Every later append publishes immutable content-addressed
+/// leaves before comparing the complete state envelope.
 pub struct HostDirJournalBackend {
     port: Arc<dyn HostDirPort>,
     capabilities: BackendCapabilities,
@@ -52,7 +32,7 @@ pub struct HostDirJournalBackend {
 }
 
 impl HostDirJournalBackend {
-    /// Opens a binding. Read operations remain available when write safety is absent.
+    /// Opens a binding and verifies the complete committed closure.
     pub fn open(
         port: Arc<dyn HostDirPort>,
         capabilities: BackendCapabilities,
@@ -67,11 +47,11 @@ impl HostDirJournalBackend {
             work_bound,
             fail: None,
         };
-        backend.read_state()?; // full chain and content-closure verification before exposure
+        backend.read_state()?;
         Ok(backend)
     }
 
-    /// Installs a deterministic test hook. Returning true simulates process death.
+    /// Installs a deterministic crash hook for conformance models.
     pub fn with_failpoint_hook(
         mut self,
         hook: impl Fn(Failpoint) -> bool + Send + Sync + 'static,
@@ -80,9 +60,20 @@ impl HostDirJournalBackend {
         self
     }
 
-    /// Reports the binding evidence used to admit or refuse write mode.
+    /// Reports the capability evidence used to admit or refuse writes.
     pub fn capabilities(&self) -> BackendCapabilities {
         self.capabilities
+    }
+
+    /// Returns the selected v2 state envelope, if migration has occurred.
+    pub fn state_envelope(&self) -> Result<Option<NativeStateEnvelope>, JournalError> {
+        let Some(bytes) = self.state_bytes()? else {
+            return Ok(None);
+        };
+        if bytes.starts_with(b"SIMJSTATE1") {
+            return Ok(None);
+        }
+        Ok(Some(decode_envelope(&bytes)?))
     }
 
     fn trip(&self, point: Failpoint) -> Result<(), JournalError> {
@@ -108,10 +99,13 @@ impl HostDirJournalBackend {
     }
 
     fn ensure_layout(&self) -> Result<(), JournalError> {
-        for path in [["objects"], ["entries"], ["temporary"]] {
-            self.port
-                .create_dir(&path.map(str::to_owned))
-                .map_err(port_error)?;
+        for path in [
+            vec!["objects-v2".into()],
+            vec!["namespaces-v2".into()],
+            vec!["compat-v1".into()],
+            vec!["temporary".into()],
+        ] {
+            self.port.create_dir(&path).map_err(port_error)?;
         }
         Ok(())
     }
@@ -119,8 +113,8 @@ impl HostDirJournalBackend {
     fn state_bytes(&self) -> Result<Option<Vec<u8>>, JournalError> {
         match self.port.read(&["state".into()]) {
             Ok(bytes) => Ok(Some(bytes)),
-            Err(e) if e.kind == HostDirErrorKind::NotFound => Ok(None),
-            Err(e) => Err(port_error(e)),
+            Err(error) if error.kind == HostDirErrorKind::NotFound => Ok(None),
+            Err(error) => Err(port_error(error)),
         }
     }
 
@@ -129,10 +123,7 @@ impl HostDirJournalBackend {
             .port
             .compare_exchange(path, None, Some(bytes), &NeverCancel)
             .map_err(port_error)?;
-        if outcome.exchanged {
-            return Ok(());
-        }
-        if outcome.observed.as_deref() == Some(bytes) {
+        if outcome.exchanged || outcome.observed.as_deref() == Some(bytes) {
             Ok(())
         } else {
             Err(JournalError::ConflictingObject)
@@ -142,6 +133,313 @@ impl HostDirJournalBackend {
     fn load(&self, path: &[String]) -> Result<Vec<u8>, JournalError> {
         self.port.read(path).map_err(port_error)
     }
+
+    fn reserve_namespace(&self, seed: &[u8]) -> Result<EntryNamespace, JournalError> {
+        for _ in 0..128 {
+            let nonce = NAMESPACE_COUNTER.fetch_add(1, Ordering::Relaxed);
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_err(|_| JournalError::Backend("system time before epoch".into()))?
+                .as_nanos();
+            let mut hash = Sha256::new();
+            hash.update(b"sim-journal-namespace-v2\0");
+            hash.update(seed);
+            hash.update(std::process::id().to_be_bytes());
+            hash.update(now.to_be_bytes());
+            hash.update(nonce.to_be_bytes());
+            let token = hex(&hash.finalize());
+            let namespace = EntryNamespace(token);
+            let root = namespace_root(&namespace);
+            self.port.create_dir(&root).map_err(port_error)?;
+            let marker = [root.clone(), vec!["format".into()]].concat();
+            let result = self
+                .port
+                .compare_exchange(&marker, None, Some(b"SIMJNAMESPACE2"), &NeverCancel)
+                .map_err(port_error)?;
+            if result.exchanged {
+                self.port
+                    .create_dir(&[root, vec!["entries".into()]].concat())
+                    .map_err(port_error)?;
+                return Ok(namespace);
+            }
+        }
+        Err(JournalError::Backend(
+            "could not reserve a fresh journal namespace".into(),
+        ))
+    }
+
+    fn put_object(&self, object: &JournalObject) -> Result<StoredDatumRef, JournalError> {
+        object.verify()?;
+        let bytes = object.storage_bytes()?;
+        let storage = crate::object::storage_id(&bytes);
+        let meaning_dir = vec!["objects-v2".into(), id_key(&object.id)];
+        self.port.create_dir(&meaning_dir).map_err(port_error)?;
+        let path = [meaning_dir, vec![id_key(&storage)]].concat();
+        self.put_immutable(&path, &bytes)?;
+        Ok(StoredDatumRef {
+            meaning: object.id.clone(),
+            storage,
+        })
+    }
+
+    fn find_object(
+        &self,
+        meaning: &ContentId,
+    ) -> Result<(StoredDatumRef, JournalObject), JournalError> {
+        let dir = vec!["objects-v2".into(), id_key(meaning)];
+        let entries = self.port.list(&dir).map_err(port_error)?;
+        let files: Vec<_> = entries
+            .into_iter()
+            .filter(|entry| entry.kind == sim_storage_port::HostEntryKind::File)
+            .collect();
+        if files.is_empty() {
+            return Err(JournalError::MissingSemanticObject(meaning.clone()));
+        }
+        if files.len() != 1 {
+            return Err(JournalError::CorruptState("ambiguous semantic object"));
+        }
+        let storage = parse_id_key(&files[0].name)?;
+        let bytes = self.load(&[dir, vec![files[0].name.clone()]].concat())?;
+        if crate::object::storage_id(&bytes) != storage {
+            return Err(JournalError::CorruptState("object storage id"));
+        }
+        let object = JournalObject::from_storage_bytes(&bytes)?;
+        if object.id != *meaning {
+            return Err(JournalError::CorruptObject(meaning.clone()));
+        }
+        Ok((
+            StoredDatumRef {
+                meaning: meaning.clone(),
+                storage,
+            },
+            object,
+        ))
+    }
+
+    fn load_object_ref(&self, reference: &StoredDatumRef) -> Result<JournalObject, JournalError> {
+        let bytes = self.load(&object_path(reference))?;
+        if crate::object::storage_id(&bytes) != reference.storage {
+            return Err(JournalError::CorruptState("object storage id"));
+        }
+        let object = JournalObject::from_storage_bytes(&bytes)?;
+        if object.id != reference.meaning {
+            return Err(JournalError::CorruptObject(reference.meaning.clone()));
+        }
+        Ok(object)
+    }
+
+    fn read_v1(&self, state_bytes: &[u8]) -> Result<(StoredState, JournalHead), JournalError> {
+        let (_, head) = decode_v1_state(state_bytes)?;
+        let Some(physical_head) = head else {
+            return Err(JournalError::CorruptState("empty v1 prefix"));
+        };
+        let needed = usize::try_from(physical_head.sequence)
+            .ok()
+            .and_then(|value| value.checked_add(1))
+            .ok_or(JournalError::WorkBoundExceeded)?;
+        if needed > self.work_bound {
+            return Err(JournalError::WorkBoundExceeded);
+        }
+        let mut entries = BTreeMap::new();
+        let mut objects = BTreeMap::new();
+        let mut datums = BTreeMap::new();
+        let mut physical_previous = None;
+        let mut canonical_previous = None;
+        for sequence in 0..=physical_head.sequence {
+            let bytes = self.load(&v1_entry_path(sequence))?;
+            let old = decode_v1_entry(&bytes)?;
+            if old.sequence != sequence || old.previous != physical_previous {
+                return Err(JournalError::CorruptState("v1 chain"));
+            }
+            if old.id != old.canonical_id() {
+                return Err(JournalError::CorruptEntry);
+            }
+            let mut payloads = Vec::with_capacity(old.payloads.len());
+            for old_id in &old.payloads {
+                let payload = self.load(&v1_object_path(old_id))?;
+                if v1_object_id(&payload) != *old_id {
+                    return Err(JournalError::CorruptObject(old_id.clone()));
+                }
+                let object = JournalObject::from_bytes(payload);
+                payloads.push(object.id.clone());
+                objects.insert(object.id.clone(), object.bytes.clone());
+                datums.insert(object.id.clone(), object.datum().clone());
+            }
+            let entry = JournalEntry::new(sequence, canonical_previous.clone(), old.kind, payloads);
+            physical_previous = Some(old.id);
+            canonical_previous = Some(entry.id.clone());
+            entries.insert(sequence, entry);
+        }
+        if physical_previous.as_ref() != Some(&physical_head.entry) {
+            return Err(JournalError::CorruptState("v1 head"));
+        }
+        let canonical_head = entries
+            .last_key_value()
+            .map(|(_, entry)| JournalHead {
+                sequence: entry.sequence,
+                entry: entry.id.clone(),
+            })
+            .ok_or(JournalError::CorruptState("empty v1 prefix"))?;
+        let state = StoredState {
+            objects,
+            datums,
+            entries,
+            head: Some(canonical_head.clone()),
+        };
+        crate::verify::verify_state(&state)?;
+        Ok((state, canonical_head))
+    }
+
+    fn read_prefix(&self, prefix: &VerifiedNativePrefixRef) -> Result<StoredState, JournalError> {
+        let bytes = self.load(&descriptor_path(&prefix.descriptor))?;
+        if crate::object::storage_id(&bytes) != prefix.descriptor {
+            return Err(JournalError::CorruptState("prefix descriptor id"));
+        }
+        let (old_state, described_canonical_head) = decode_descriptor(&bytes)?;
+        let (_, physical) = decode_v1_state(&old_state)?;
+        if physical.as_ref() != Some(&prefix.physical_head) {
+            return Err(JournalError::CorruptState("prefix physical head"));
+        }
+        let (state, canonical) = self.read_v1(&old_state)?;
+        if described_canonical_head != prefix.canonical_head
+            || canonical != prefix.canonical_head
+            || prefix.entries != canonical.sequence.saturating_add(1)
+        {
+            return Err(JournalError::CorruptState("prefix canonical head"));
+        }
+        Ok(state)
+    }
+
+    fn read_v2(&self, envelope: &NativeStateEnvelope) -> Result<StoredState, JournalError> {
+        if envelope.format != NativeFormatId::V2 {
+            return Err(JournalError::CorruptState("native format"));
+        }
+        let marker =
+            self.load(&[namespace_root(&envelope.namespace), vec!["format".into()]].concat())?;
+        if marker != b"SIMJNAMESPACE2" {
+            return Err(JournalError::CorruptState("namespace format"));
+        }
+        let mut state = match &envelope.prefix {
+            Some(prefix) => self.read_prefix(prefix)?,
+            None => StoredState::default(),
+        };
+        let prefix_len = state.entries.len();
+        let mut location = envelope.head_location.clone();
+        let mut suffix = Vec::new();
+        let mut seen = BTreeSet::new();
+        while let Some(current) = location {
+            if current.namespace != envelope.namespace || !seen.insert(current.clone()) {
+                return Err(JournalError::CorruptState("entry locator chain"));
+            }
+            if prefix_len + suffix.len() >= self.work_bound {
+                return Err(JournalError::WorkBoundExceeded);
+            }
+            let bytes = self.load(&entry_path(&current))?;
+            if crate::object::storage_id(&bytes) != current.storage {
+                return Err(JournalError::CorruptState("entry storage id"));
+            }
+            let physical = decode_v2_entry(&bytes)?;
+            if physical.entry.id != current.entry
+                || physical.entry.sequence != current.sequence
+                || physical.entry.canonical_id()? != physical.entry.id
+            {
+                return Err(JournalError::CorruptEntry);
+            }
+            for (meaning, reference) in physical.entry.payloads.iter().zip(&physical.payloads) {
+                if meaning != &reference.meaning {
+                    return Err(JournalError::CorruptState("payload locator"));
+                }
+                let object = self.load_object_ref(reference)?;
+                state
+                    .objects
+                    .insert(object.id.clone(), object.bytes.clone());
+                state
+                    .datums
+                    .insert(object.id.clone(), object.datum().clone());
+            }
+            if physical.entry.payloads.len() != physical.payloads.len() {
+                return Err(JournalError::CorruptState("payload locator count"));
+            }
+            location = physical.previous_location.clone();
+            suffix.push(physical);
+        }
+        suffix.reverse();
+        for physical in suffix {
+            if state
+                .entries
+                .insert(physical.entry.sequence, physical.entry)
+                .is_some()
+            {
+                return Err(JournalError::CorruptState("overlapping suffix"));
+            }
+        }
+        state.head = envelope.head.clone();
+        crate::verify::verify_state(&state)?;
+        let expected_location = state.entries.len() > prefix_len;
+        if expected_location != envelope.head_location.is_some() {
+            return Err(JournalError::CorruptState("head locator"));
+        }
+        Ok(state)
+    }
+
+    fn install_v2(&self, observed: Option<&[u8]>) -> Result<Option<Lease>, JournalError> {
+        let (old_fence, prefix, canonical_head) = match observed {
+            Some(bytes) => {
+                let (fence, physical_head) = decode_v1_state(bytes)?;
+                match physical_head {
+                    Some(physical_head) => {
+                        let (_, canonical_head) = self.read_v1(bytes)?;
+                        self.trip(Failpoint::BeforePrefixDescriptor)?;
+                        let descriptor_bytes = encode_descriptor(bytes, &canonical_head);
+                        let descriptor = crate::object::storage_id(&descriptor_bytes);
+                        self.put_immutable(&descriptor_path(&descriptor), &descriptor_bytes)?;
+                        self.trip(Failpoint::AfterPrefixDescriptor)?;
+                        (
+                            fence,
+                            Some(VerifiedNativePrefixRef {
+                                entries: canonical_head.sequence + 1,
+                                physical_head,
+                                canonical_head: canonical_head.clone(),
+                                descriptor,
+                            }),
+                            Some(canonical_head),
+                        )
+                    }
+                    None => (fence, None, None),
+                }
+            }
+            None => (0, None, None),
+        };
+        let fence = old_fence
+            .checked_add(1)
+            .ok_or_else(|| JournalError::Backend("fence exhausted".into()))?;
+        let namespace = self.reserve_namespace(observed.unwrap_or_default())?;
+        self.trip(Failpoint::AfterNamespaceReservation)?;
+        let envelope = NativeStateEnvelope {
+            format: NativeFormatId::V2,
+            fence,
+            namespace,
+            prefix,
+            head: canonical_head,
+            head_location: None,
+        };
+        let replacement = encode_envelope(&envelope);
+        self.trip(Failpoint::BeforeFormatCas)?;
+        let result = self
+            .port
+            .compare_exchange(
+                &["state".into()],
+                observed,
+                Some(&replacement),
+                &NeverCancel,
+            )
+            .map_err(port_error)?;
+        if !result.exchanged {
+            return Ok(None);
+        }
+        self.trip(Failpoint::AfterFormatCas)?;
+        Ok(Some(Lease { fence }))
+    }
 }
 
 impl JournalBackend for HostDirJournalBackend {
@@ -150,96 +448,120 @@ impl JournalBackend for HostDirJournalBackend {
         self.ensure_layout()?;
         loop {
             let observed = self.state_bytes()?;
-            let (fence, head) = observed
-                .as_deref()
-                .map(decode_state)
-                .transpose()?
-                .unwrap_or((0, None));
-            let next = fence
-                .checked_add(1)
-                .ok_or_else(|| JournalError::Backend("fence exhausted".into()))?;
-            let replacement = encode_state(next, head.as_ref());
-            let result = self
-                .port
-                .compare_exchange(
-                    &["state".into()],
-                    observed.as_deref(),
-                    Some(&replacement),
-                    &NeverCancel,
-                )
-                .map_err(port_error)?;
-            if result.exchanged {
-                return Ok(Lease { fence: next });
+            match observed.as_deref() {
+                None => {
+                    if let Some(lease) = self.install_v2(observed.as_deref())? {
+                        return Ok(lease);
+                    }
+                }
+                Some(bytes) if bytes.starts_with(b"SIMJSTATE1") => {
+                    if let Some(lease) = self.install_v2(Some(bytes))? {
+                        return Ok(lease);
+                    }
+                }
+                Some(bytes) => {
+                    let mut envelope = decode_envelope(bytes)?;
+                    self.read_v2(&envelope)?;
+                    envelope.fence = envelope
+                        .fence
+                        .checked_add(1)
+                        .ok_or_else(|| JournalError::Backend("fence exhausted".into()))?;
+                    let replacement = encode_envelope(&envelope);
+                    let result = self
+                        .port
+                        .compare_exchange(
+                            &["state".into()],
+                            Some(bytes),
+                            Some(&replacement),
+                            &NeverCancel,
+                        )
+                        .map_err(port_error)?;
+                    if result.exchanged {
+                        return Ok(Lease {
+                            fence: envelope.fence,
+                        });
+                    }
+                }
             }
         }
     }
 
     fn read_state(&self) -> Result<StoredState, JournalError> {
-        let (_, head) = self
-            .state_bytes()?
-            .as_deref()
-            .map(decode_state)
-            .transpose()?
-            .unwrap_or((0, None));
-        let Some(head) = head else {
+        let Some(bytes) = self.state_bytes()? else {
             return Ok(StoredState::default());
         };
-        let needed = (head.sequence as usize)
-            .checked_add(1)
-            .ok_or(JournalError::WorkBoundExceeded)?;
-        if needed > self.work_bound {
-            return Err(JournalError::WorkBoundExceeded);
+        if bytes.starts_with(b"SIMJSTATE1") {
+            let (_, head) = decode_v1_state(&bytes)?;
+            return match head {
+                Some(_) => self.read_v1(&bytes).map(|(state, _)| state),
+                None => Ok(StoredState::default()),
+            };
         }
-        let mut entries = BTreeMap::new();
-        let mut objects = BTreeMap::new();
-        for sequence in 0..=head.sequence {
-            let bytes = self.load(&entry_path(sequence))?;
-            let entry = decode_entry(&bytes)?;
-            if entry.sequence != sequence {
-                return Err(JournalError::CorruptState("entry location"));
-            }
-            for id in &entry.payloads {
-                if !objects.contains_key(id) {
-                    if entries.len() + objects.len() >= self.work_bound {
-                        return Err(JournalError::WorkBoundExceeded);
-                    }
-                    objects.insert(id.clone(), self.load(&object_path(id))?);
-                }
-            }
-            entries.insert(sequence, entry);
-        }
-        let state = StoredState {
-            objects,
-            entries,
-            head: Some(head),
-        };
-        crate::verify::verify_state(&state)?;
-        Ok(state)
+        let envelope = decode_envelope(&bytes)?;
+        self.read_v2(&envelope)
     }
 
     fn admit(&self, admission: Admission) -> Result<JournalHead, JournalError> {
         self.write_capable()?;
         self.ensure_layout()?;
-        let observed = self.state_bytes()?;
-        let (fence, head) = observed
-            .as_deref()
-            .map(decode_state)
-            .transpose()?
-            .unwrap_or((0, None));
-        if fence != admission.fence {
+        let observed = self.state_bytes()?.ok_or(JournalError::WriteRefused(
+            "acquire a v2 lease before append",
+        ))?;
+        if observed.starts_with(b"SIMJSTATE1") {
+            return Err(JournalError::WriteRefused(
+                "acquire a v2 lease before append",
+            ));
+        }
+        let mut envelope = decode_envelope(&observed)?;
+        if envelope.fence != admission.fence {
             return Err(JournalError::StaleLease);
         }
-        if head != admission.expected {
+        if envelope.head != admission.expected {
+            if admission.entries.last().is_some_and(|entry| {
+                envelope
+                    .head
+                    .as_ref()
+                    .is_some_and(|head| head.entry == entry.id)
+            }) {
+                return envelope.head.ok_or(JournalError::WrongHead);
+            }
             return Err(JournalError::WrongHead);
         }
         self.trip(Failpoint::BeforeObjectPublish)?;
+        let mut references = BTreeMap::new();
         for object in &admission.objects {
-            object.verify()?;
-            self.put_immutable(&object_path(&object.id), &object.bytes)?;
+            let reference = self.put_object(object)?;
+            references.insert(reference.meaning.clone(), reference);
         }
         self.trip(Failpoint::AfterObjectPublish)?;
+        let mut previous_location = envelope.head_location.clone();
+        let mut last_location = None;
         for entry in &admission.entries {
-            self.put_immutable(&entry_path(entry.sequence), &encode_entry(entry))?;
+            let mut payloads = Vec::with_capacity(entry.payloads.len());
+            for meaning in &entry.payloads {
+                let reference = match references.get(meaning) {
+                    Some(reference) => reference.clone(),
+                    None => self.find_object(meaning)?.0,
+                };
+                payloads.push(reference);
+            }
+            let physical = PhysicalEntry {
+                entry: entry.clone(),
+                previous_location: previous_location.clone(),
+                payloads,
+            };
+            let bytes = encode_v2_entry(&physical);
+            let storage = crate::object::storage_id(&bytes);
+            let location = EntryLocation {
+                namespace: envelope.namespace.clone(),
+                sequence: entry.sequence,
+                entry: entry.id.clone(),
+                storage,
+            };
+            ensure_entry_dirs(self.port.as_ref(), &location)?;
+            self.put_immutable(&entry_path(&location), &bytes)?;
+            previous_location = Some(location.clone());
+            last_location = Some(location);
         }
         self.trip(Failpoint::AfterDurabilityReceipt)?;
         let last = admission.entries.last().ok_or(JournalError::EmptyBatch)?;
@@ -247,13 +569,15 @@ impl JournalBackend for HostDirJournalBackend {
             sequence: last.sequence,
             entry: last.id.clone(),
         };
+        envelope.head = Some(new_head.clone());
+        envelope.head_location = last_location;
         self.trip(Failpoint::BeforeCas)?;
-        let replacement = encode_state(fence, Some(&new_head));
+        let replacement = encode_envelope(&envelope);
         let result = self
             .port
             .compare_exchange(
                 &["state".into()],
-                observed.as_deref(),
+                Some(&observed),
                 Some(&replacement),
                 &NeverCancel,
             )
@@ -265,154 +589,35 @@ impl JournalBackend for HostDirJournalBackend {
         self.trip(Failpoint::BeforeAcknowledgement)?;
         Ok(new_head)
     }
-}
 
-fn port_error(error: sim_storage_port::HostDirError) -> JournalError {
-    JournalError::Backend(error.to_string())
-}
-fn entry_path(sequence: u64) -> Vec<String> {
-    vec!["entries".into(), format!("{sequence:016x}")]
-}
-fn object_path(id: &ContentId) -> Vec<String> {
-    vec!["objects".into(), hex(&id.bytes)]
-}
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
-}
+    fn put_datum(&self, object: JournalObject) -> Result<StoredDatumRef, JournalError> {
+        self.write_capable()?;
+        self.ensure_layout()?;
+        self.put_object(&object)
+    }
 
-fn encode_state(fence: u64, head: Option<&JournalHead>) -> Vec<u8> {
-    let mut out = b"SIMJSTATE1".to_vec();
-    out.extend(fence.to_be_bytes());
-    match head {
-        Some(h) => {
-            out.push(1);
-            out.extend(h.sequence.to_be_bytes());
-            put_id(&mut out, &h.entry);
+    fn get_datum(&self, meaning: &ContentId) -> Result<Datum, JournalError> {
+        Ok(self.find_object(meaning)?.1.datum().clone())
+    }
+
+    fn rebuild_datum_index(&self) -> Result<Vec<StoredDatumRef>, JournalError> {
+        let mut rebuilt = Vec::new();
+        let entries = match self.port.list(&["objects-v2".into()]) {
+            Ok(entries) => entries,
+            Err(error) if error.kind == HostDirErrorKind::NotFound => return Ok(rebuilt),
+            Err(error) => return Err(port_error(error)),
+        };
+        for entry in entries {
+            if entry.kind != sim_storage_port::HostEntryKind::Directory {
+                return Err(JournalError::CorruptState("object index entry"));
+            }
+            if rebuilt.len() >= self.work_bound {
+                return Err(JournalError::WorkBoundExceeded);
+            }
+            let meaning = parse_id_key(&entry.name)?;
+            rebuilt.push(self.find_object(&meaning)?.0);
         }
-        None => out.push(0),
-    }
-    out
-}
-fn decode_state(bytes: &[u8]) -> Result<(u64, Option<JournalHead>), JournalError> {
-    let mut c = Cursor::new(bytes);
-    if c.take(10)? != b"SIMJSTATE1" {
-        return Err(JournalError::CorruptState("state format"));
-    }
-    let fence = c.u64()?;
-    let head = match c.byte()? {
-        0 => None,
-        1 => Some(JournalHead {
-            sequence: c.u64()?,
-            entry: c.id()?,
-        }),
-        _ => return Err(JournalError::CorruptState("state tag")),
-    };
-    c.end()?;
-    Ok((fence, head))
-}
-fn encode_entry(entry: &JournalEntry) -> Vec<u8> {
-    let mut out = b"SIMJENTRY1".to_vec();
-    put_id(&mut out, &entry.id);
-    out.extend(entry.sequence.to_be_bytes());
-    match &entry.previous {
-        Some(id) => {
-            out.push(1);
-            put_id(&mut out, id)
-        }
-        None => out.push(0),
-    };
-    put_text(&mut out, &entry.kind.as_qualified_str());
-    out.extend((entry.payloads.len() as u32).to_be_bytes());
-    for id in &entry.payloads {
-        put_id(&mut out, id);
-    }
-    out
-}
-fn decode_entry(bytes: &[u8]) -> Result<JournalEntry, JournalError> {
-    let mut c = Cursor::new(bytes);
-    if c.take(10)? != b"SIMJENTRY1" {
-        return Err(JournalError::CorruptState("entry format"));
-    }
-    let id = c.id()?;
-    let sequence = c.u64()?;
-    let previous = match c.byte()? {
-        0 => None,
-        1 => Some(c.id()?),
-        _ => return Err(JournalError::CorruptState("entry tag")),
-    };
-    let kind = parse_symbol(&c.text()?)?;
-    let count = c.u32()? as usize;
-    let mut payloads = Vec::with_capacity(count);
-    for _ in 0..count {
-        payloads.push(c.id()?);
-    }
-    c.end()?;
-    Ok(JournalEntry {
-        id,
-        sequence,
-        previous,
-        kind,
-        payloads,
-    })
-}
-fn put_id(out: &mut Vec<u8>, id: &ContentId) {
-    put_text(out, &id.algorithm.as_qualified_str());
-    out.extend(id.bytes)
-}
-fn put_text(out: &mut Vec<u8>, text: &str) {
-    out.extend((text.len() as u32).to_be_bytes());
-    out.extend(text.as_bytes())
-}
-fn parse_symbol(text: &str) -> Result<Symbol, JournalError> {
-    match text.split_once('/') {
-        Some((n, v)) if !n.is_empty() && !v.is_empty() => Ok(Symbol::qualified(n, v)),
-        None => Symbol::checked(text).map_err(|_| JournalError::CorruptState("symbol")),
-        _ => Err(JournalError::CorruptState("symbol")),
-    }
-}
-struct Cursor<'a> {
-    bytes: &'a [u8],
-    at: usize,
-}
-impl<'a> Cursor<'a> {
-    fn new(bytes: &'a [u8]) -> Self {
-        Self { bytes, at: 0 }
-    }
-    fn take(&mut self, n: usize) -> Result<&'a [u8], JournalError> {
-        let end = self
-            .at
-            .checked_add(n)
-            .ok_or(JournalError::CorruptState("length"))?;
-        let value = self
-            .bytes
-            .get(self.at..end)
-            .ok_or(JournalError::CorruptState("truncated"))?;
-        self.at = end;
-        Ok(value)
-    }
-    fn byte(&mut self) -> Result<u8, JournalError> {
-        Ok(self.take(1)?[0])
-    }
-    fn u32(&mut self) -> Result<u32, JournalError> {
-        Ok(u32::from_be_bytes(self.take(4)?.try_into().unwrap()))
-    }
-    fn u64(&mut self) -> Result<u64, JournalError> {
-        Ok(u64::from_be_bytes(self.take(8)?.try_into().unwrap()))
-    }
-    fn text(&mut self) -> Result<String, JournalError> {
-        let n = self.u32()? as usize;
-        String::from_utf8(self.take(n)?.to_vec()).map_err(|_| JournalError::CorruptState("utf8"))
-    }
-    fn id(&mut self) -> Result<ContentId, JournalError> {
-        let algorithm = parse_symbol(&self.text()?)?;
-        let bytes = self.take(32)?.try_into().unwrap();
-        Ok(ContentId::from_bytes(algorithm, bytes))
-    }
-    fn end(&self) -> Result<(), JournalError> {
-        if self.at == self.bytes.len() {
-            Ok(())
-        } else {
-            Err(JournalError::CorruptState("trailing bytes"))
-        }
+        rebuilt.sort_by(|left, right| left.meaning.cmp(&right.meaning));
+        Ok(rebuilt)
     }
 }

@@ -1,12 +1,16 @@
 // conformance: immutable journal objects and fenced heads replay exactly after reopen.
 
 use crate::*;
-use sim_kernel::{ContentId, Symbol};
+use sha2::{Digest, Sha256};
+use sim_kernel::{ContentId, Datum, Symbol, datum_content_algorithm};
 use sim_storage_port::{
     Cancellation, HostCompareExchange, HostDirError, HostDirErrorKind, HostDirPort, HostEntry,
 };
-use std::sync::Arc;
-use std::{collections::BTreeMap, sync::Mutex};
+use std::sync::{Arc, Barrier};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Mutex,
+};
 
 fn object(byte: u8) -> JournalObject {
     JournalObject::from_bytes([byte])
@@ -96,10 +100,8 @@ fn corrupt_bytes_and_conflicting_content_are_rejected() {
     let journal = Journal::new(MemoryBackend::new());
     let lease = journal.acquire_lease().unwrap();
     let good = object(1);
-    let corrupt = JournalObject {
-        id: good.id.clone(),
-        bytes: vec![2],
-    };
+    let mut corrupt = good.clone();
+    corrupt.bytes = vec![2];
     let first = entry(0, None, &good);
     assert!(matches!(
         journal.publish(&lease, None, vec![corrupt], vec![first]),
@@ -211,13 +213,14 @@ fn every_short_two_writer_interleaving_has_one_sequence_zero_winner() {
 #[derive(Default)]
 struct TestPort {
     files: Mutex<BTreeMap<Vec<String>, Vec<u8>>>,
+    dirs: Mutex<BTreeSet<Vec<String>>>,
 }
 impl TestPort {
     fn corrupt_one_byte(&self) {
         let mut files = self.files.lock().unwrap();
         let value = files
             .iter_mut()
-            .find(|(p, _)| p.first().is_some_and(|v| v == "objects"))
+            .find(|(p, _)| p.first().is_some_and(|v| v == "objects-v2"))
             .unwrap()
             .1;
         value[0] ^= 1;
@@ -227,8 +230,35 @@ impl HostDirPort for TestPort {
     fn label(&self) -> &str {
         "test"
     }
-    fn list(&self, _: &[String]) -> Result<Vec<HostEntry>, HostDirError> {
-        Ok(vec![])
+    fn list(&self, dir: &[String]) -> Result<Vec<HostEntry>, HostDirError> {
+        let files = self.files.lock().unwrap();
+        let dirs = self.dirs.lock().unwrap();
+        let mut rows = BTreeMap::new();
+        for path in dirs.iter() {
+            if path.len() == dir.len() + 1 && path.starts_with(dir) {
+                rows.insert(
+                    path.last().unwrap().clone(),
+                    HostEntry {
+                        name: path.last().unwrap().clone(),
+                        kind: sim_storage_port::HostEntryKind::Directory,
+                        len: 0,
+                    },
+                );
+            }
+        }
+        for (path, bytes) in files.iter() {
+            if path.len() == dir.len() + 1 && path.starts_with(dir) {
+                rows.insert(
+                    path.last().unwrap().clone(),
+                    HostEntry {
+                        name: path.last().unwrap().clone(),
+                        kind: sim_storage_port::HostEntryKind::File,
+                        len: bytes.len() as u64,
+                    },
+                );
+            }
+        }
+        Ok(rows.into_values().collect())
     }
     fn metadata(&self, path: &[String]) -> Result<Option<HostEntry>, HostDirError> {
         Ok(self.files.lock().unwrap().get(path).map(|v| HostEntry {
@@ -286,7 +316,8 @@ impl HostDirPort for TestPort {
         self.files.lock().unwrap().remove(path);
         Ok(())
     }
-    fn create_dir(&self, _: &[String]) -> Result<(), HostDirError> {
+    fn create_dir(&self, path: &[String]) -> Result<(), HostDirError> {
+        self.dirs.lock().unwrap().insert(path.to_vec());
         Ok(())
     }
     fn remove_dir_all(&self, _: &[String]) -> Result<(), HostDirError> {
@@ -357,6 +388,21 @@ fn host_failpoints_reopen_to_old_or_new_head_and_verify_content() {
         } else {
             assert!(head.is_none())
         }
+        let lease = reopened.acquire_lease().unwrap();
+        let prior = reopened.head().unwrap();
+        let progress = object(8);
+        let next = entry(
+            prior.as_ref().map_or(0, |value| value.sequence + 1),
+            prior.as_ref().map(|value| value.entry.clone()),
+            &progress,
+        );
+        reopened
+            .publish(&lease, prior.as_ref(), vec![progress], vec![next])
+            .unwrap();
+        assert_eq!(
+            reopened.replay().unwrap().count(),
+            usize::from(head.is_some()) + 1
+        );
     }
 }
 
@@ -392,3 +438,54 @@ fn host_put_if_absent_contention_projection_and_corruption_laws() {
     port.corrupt_one_byte();
     assert!(HostDirJournalBackend::open(port, capabilities(), 20).is_err());
 }
+
+#[test]
+fn entry_and_payload_ids_are_kernel_datum_identities() {
+    let payload = JournalObject::from_bytes(b"semantic bytes".to_vec());
+    let entry = JournalEntry::new(
+        0,
+        None,
+        Symbol::qualified("example", "semantic"),
+        vec![payload.id.clone()],
+    );
+    assert_eq!(payload.id.algorithm, datum_content_algorithm());
+    assert_eq!(entry.id.algorithm, datum_content_algorithm());
+    assert_eq!(entry.id, entry.canonical_datum().content_id().unwrap());
+    assert_ne!(
+        payload.id,
+        ContentId::from_bytes(
+            Symbol::qualified("journal", "sha256-storage-v1"),
+            Sha256::digest(payload.storage_bytes().unwrap()).into(),
+        )
+    );
+}
+
+#[test]
+fn persistent_object_store_returns_owned_values_and_rebuilds_exactly() {
+    let backend = Arc::new(MemoryBackend::new());
+    let mut store = PersistentObjectStore::open(backend.clone()).unwrap();
+    let value = Datum::Node {
+        tag: Symbol::qualified("example", "evidence-set-v1"),
+        fields: vec![(Symbol::new("members"), Datum::Vector(vec![]))],
+    };
+    let reference = store.put(value.clone()).unwrap();
+    assert_ne!(reference.meaning, reference.storage);
+    assert_eq!(store.get(&reference.meaning).unwrap(), value);
+    assert_eq!(store.rebuild_index().unwrap(), vec![reference]);
+    drop(store);
+    let reopened = PersistentObjectStore::open(backend).unwrap();
+    assert_eq!(reopened.get(&value.content_id().unwrap()).unwrap(), value);
+}
+
+#[test]
+fn host_persistent_index_is_disposable_and_rebuildable() {
+    let port = Arc::new(TestPort::default());
+    let backend = HostDirJournalBackend::open(port, capabilities(), 20).unwrap();
+    let mut store = PersistentObjectStore::open(backend).unwrap();
+    let datum = Datum::String("persistent evidence root".into());
+    let reference = store.put(datum.clone()).unwrap();
+    assert_eq!(store.rebuild_index().unwrap(), vec![reference.clone()]);
+    assert_eq!(store.get(&reference.meaning).unwrap(), datum);
+}
+
+mod native;

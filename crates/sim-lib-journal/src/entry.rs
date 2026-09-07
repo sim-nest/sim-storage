@@ -1,7 +1,8 @@
-use sha2::{Digest, Sha256};
-use sim_kernel::{ContentId, Symbol};
+use sim_kernel::{ContentId, Datum, NumberLiteral, Symbol};
 
-/// One immutable journal fact. Kinds and payload interpretation remain open.
+use crate::JournalError;
+
+/// One immutable journal fact whose identity is the canonical semantic Datum.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JournalEntry {
     pub id: ContentId,
@@ -12,6 +13,7 @@ pub struct JournalEntry {
 }
 
 impl JournalEntry {
+    /// Constructs a canonical `journal/entry-v2` value.
     pub fn new(
         sequence: u64,
         previous: Option<ContentId>,
@@ -25,44 +27,54 @@ impl JournalEntry {
             kind,
             payloads,
         };
-        value.id = value.canonical_id();
+        value.id = value
+            .canonical_datum()
+            .content_id()
+            .expect("journal entry construction is canonical");
         value
     }
 
-    pub(crate) fn canonical_id(&self) -> ContentId {
-        let mut hasher = Sha256::new();
-        hasher.update(b"sim-journal-entry-v1\0");
-        hasher.update(self.sequence.to_be_bytes());
-        encode_optional_id(&mut hasher, self.previous.as_ref());
-        encode_symbol(&mut hasher, &self.kind);
-        hasher.update((self.payloads.len() as u64).to_be_bytes());
-        for id in &self.payloads {
-            encode_id(&mut hasher, id);
+    /// Returns the exact semantic value whose content id is this entry's id.
+    pub fn canonical_datum(&self) -> Datum {
+        Datum::Node {
+            tag: Symbol::qualified("journal", "entry-v2"),
+            fields: vec![
+                (
+                    Symbol::new("sequence"),
+                    Datum::Number(NumberLiteral {
+                        domain: Symbol::qualified("numbers", "u64"),
+                        canonical: self.sequence.to_string(),
+                    }),
+                ),
+                (
+                    Symbol::new("previous"),
+                    self.previous.as_ref().map_or(Datum::Nil, id_datum),
+                ),
+                (Symbol::new("kind"), Datum::Symbol(self.kind.clone())),
+                (
+                    Symbol::new("payloads"),
+                    Datum::Vector(self.payloads.iter().map(id_datum).collect()),
+                ),
+            ],
         }
-        ContentId::from_bytes(
-            Symbol::qualified("journal", "sha256-entry-v1"),
-            hasher.finalize().into(),
-        )
+    }
+
+    pub(crate) fn canonical_id(&self) -> Result<ContentId, JournalError> {
+        self.canonical_datum()
+            .content_id()
+            .map_err(|_| JournalError::CorruptEntry)
     }
 }
 
-fn encode_optional_id(hasher: &mut Sha256, id: Option<&ContentId>) {
-    match id {
-        Some(id) => {
-            hasher.update([1]);
-            encode_id(hasher, id);
-        }
-        None => {
-            hasher.update([0]);
-        }
+pub(crate) fn id_datum(id: &ContentId) -> Datum {
+    Datum::Node {
+        tag: Symbol::qualified("journal", "content-id-v1"),
+        fields: vec![
+            (
+                Symbol::new("algorithm"),
+                Datum::Symbol(id.algorithm.clone()),
+            ),
+            (Symbol::new("digest"), Datum::Bytes(id.bytes.to_vec())),
+        ],
     }
-}
-fn encode_id(hasher: &mut Sha256, id: &ContentId) {
-    encode_symbol(hasher, &id.algorithm);
-    hasher.update(id.bytes);
-}
-fn encode_symbol(hasher: &mut Sha256, symbol: &Symbol) {
-    let text = symbol.as_qualified_str();
-    hasher.update((text.len() as u64).to_be_bytes());
-    hasher.update(text.as_bytes());
 }

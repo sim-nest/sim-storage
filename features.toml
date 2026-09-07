@@ -29,12 +29,34 @@ title = "Atomic content journal"
 summary = "Crash-durably publish immutable content and atomically advance one gapless, fenced journal head with bounded verified reopen and disposable read-only projections."
 owner = "crate/sim-lib-journal"
 audiences = ["code", "framework"]
-guidance = "Compose this domain-free journal for durable facts. Bind HostDirPort through HostDirJournalBackend only when its capability report attests linearizable CAS and durable publication; use open Symbol kinds and opaque ContentId payloads rather than adding a lock, filesystem contract, or domain log."
+guidance = "Compose this domain-free journal for durable facts. New entries are canonical journal/entry-v2 Datums and payload ids name semantic values; storage ids and entry locators remain inside the backend. Bind HostDirPort through HostDirJournalBackend only when its capability report attests linearizable CAS and durable publication. Opening a retained SIMJSTATE1 prefix verifies its exact old byte law and projects only canonical entries; the first writer atomically selects a fresh isolated v2 namespace."
 claims_anchors = [
   "anchor/crate/sim-lib-journal",
 ]
 claims_specimens = [
   "spec-test/sim-storage/crates/sim-lib-journal/src/tests",
+]
+
+[[feature]]
+id = "feature/sim-storage/persistent-semantic-objects"
+title = "Owned-return persistent semantic objects"
+summary = "Persist canonical Datums over the journal object backend while keeping semantic identities distinct from exact-byte storage locators."
+owner = "crate/sim-lib-journal"
+audiences = ["code", "framework"]
+guidance = "Open PersistentObjectStore over the same JournalBackend used for durable facts. Put returns a StoredDatumRef containing separate meaning and storage ids; get returns an owned Datum and rechecks its meaning. Treat the semantic-to-storage index as derived: rebuild and verify it after index loss, and retain a journal root before treating an object as durable execution evidence."
+claims_anchors = ["anchor/crate/sim-lib-journal"]
+claims_specimens = [
+  "spec-test/sim-storage/crates/sim-lib-journal/src/tests",
+]
+supports = ["feature/sim-storage/atomic-content-journal"]
+
+[[route]]
+id = "route/store-persistent-semantic-objects"
+task = "Persist semantic Datums without confusing meaning with storage bytes"
+audiences = ["framework"]
+steps = [
+  { feature = "feature/sim-storage/persistent-semantic-objects", why = "The owned-return facet verifies the kernel Datum id, exact storage id, and rebuildable correspondence over the existing journal backend." },
+  { specimen = "spec-test/sim-storage/crates/sim-lib-journal/src/tests", why = "The conformance suite exercises canonical put, owned get, exact index rebuild, and corrupt or missing content refusal through the public facet." },
 ]
 
 [[feature]]

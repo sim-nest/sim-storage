@@ -30,6 +30,10 @@ pub enum JournalError {
     MissingPayload(ContentId),
     #[error("content id was redelivered with conflicting bytes")]
     ConflictingObject,
+    #[error("datum is not canonical")]
+    NonCanonicalDatum,
+    #[error("semantic object {0:?} is missing")]
+    MissingSemanticObject(ContentId),
     #[error("sequence was redelivered with a conflicting entry")]
     ConflictingDelivery,
     #[error("backend state is corrupt: {0}")]
@@ -63,7 +67,7 @@ pub(crate) fn verify_batch(
     let first_sequence = expected.map_or(0, |h| h.sequence + 1);
     let mut previous = expected.map(|h| h.entry.clone());
     for (sequence, entry) in (first_sequence..).zip(entries) {
-        if entry.canonical_id() != entry.id {
+        if entry.canonical_id()? != entry.id {
             return Err(JournalError::CorruptEntry);
         }
         if entry.sequence != sequence {
@@ -89,6 +93,7 @@ pub(crate) fn verify_batch(
 
 pub(crate) fn verify_state(state: &StoredState) -> Result<Verification, JournalError> {
     let mut prior = None;
+    let mut object_ids = BTreeSet::new();
     for (expected_sequence, entry) in state.entries.values().enumerate() {
         if entry.sequence != expected_sequence as u64 {
             return Err(JournalError::CorruptState("sequence gap"));
@@ -96,19 +101,23 @@ pub(crate) fn verify_state(state: &StoredState) -> Result<Verification, JournalE
         if entry.previous != prior {
             return Err(JournalError::CorruptState("previous id"));
         }
-        if entry.canonical_id() != entry.id {
+        if entry.canonical_id()? != entry.id {
             return Err(JournalError::CorruptEntry);
         }
         for payload in &entry.payloads {
+            object_ids.insert(payload.clone());
             let bytes = state
                 .objects
                 .get(payload)
                 .ok_or_else(|| JournalError::MissingPayload(payload.clone()))?;
-            JournalObject {
-                id: payload.clone(),
-                bytes: bytes.clone(),
+            let datum = state
+                .datums
+                .get(payload)
+                .ok_or_else(|| JournalError::MissingSemanticObject(payload.clone()))?;
+            let object = JournalObject::from_datum(datum.clone())?;
+            if object.id != *payload || object.bytes != *bytes {
+                return Err(JournalError::CorruptObject(payload.clone()));
             }
-            .verify()?;
         }
         prior = Some(entry.id.clone());
     }
@@ -122,6 +131,6 @@ pub(crate) fn verify_state(state: &StoredState) -> Result<Verification, JournalE
     Ok(Verification {
         head: computed,
         entries: state.entries.values().cloned().collect(),
-        object_ids: state.objects.keys().cloned().collect(),
+        object_ids,
     })
 }
