@@ -19,7 +19,7 @@ This generated lane consumes `docs/generated/sim-index-fragment.sx`. Global inde
 | --- | --- | ---: | --- |
 | `feature/sim-storage/artifact-facet-law` | `crate/sim-artifact-facet` | 1 | Classify and merge exact base, observed, and intended artifact images under singular owner, region, generated-owner, disclosure, and bounded merge declarations. |
 | `feature/sim-storage/atomic-content-journal` | `crate/sim-lib-journal` | 1 | Crash-durably publish immutable content and atomically advance one gapless, fenced journal head with bounded verified reopen and disposable read-only projections. |
-| `feature/sim-storage/persistent-semantic-objects` | `crate/sim-lib-journal` | 0 | Persist canonical Datums over the journal object backend while keeping semantic identities distinct from exact-byte storage locators. |
+| `feature/sim-storage/persistent-semantic-objects` | `crate/sim-lib-journal` | 1 | Persist canonical Datums over the journal object backend while keeping semantic identities distinct from exact-byte storage locators. |
 | `feature/sim-storage/mutual-copied-projection` | `crate/sim-mutual-projection` | 1 | Copy one Shape-admitted fact and provenance between opaque peer archives only after two independent acceptances, with expiry, revocation, and minimum tombstones. |
 | `feature/sim-storage/sealed-table-decorator` | `crate/sim-table-sealed` | 1 | Wrap Table/Dir storage with authenticated encryption and manage crash-safe, independently granted generations, wrapped-only backups, recovery, and bounded crypto-erasure evidence. |
 | `feature/sim-storage/table-dir-backends` | `crate/sim-table-hash` | 1 | Provide hash, database, mounted, and view Table/Dir implementations, with honest linearizable compare-exchange where the backend can establish one atomic boundary. |
@@ -734,23 +734,6 @@ fn entry_and_payload_ids_are_kernel_datum_identities() {
 }
 
 #[test]
-fn persistent_object_store_returns_owned_values_and_rebuilds_exactly() {
-    let backend = Arc::new(MemoryBackend::new());
-    let mut store = PersistentObjectStore::open(backend.clone()).unwrap();
-    let value = Datum::Node {
-        tag: Symbol::qualified("example", "evidence-set-v1"),
-        fields: vec![(Symbol::new("members"), Datum::Vector(vec![]))],
-    };
-    let reference = store.put(value.clone()).unwrap();
-    assert_ne!(reference.meaning, reference.storage);
-    assert_eq!(store.get(&reference.meaning).unwrap(), value);
-    assert_eq!(store.rebuild_index().unwrap(), vec![reference]);
-    drop(store);
-    let reopened = PersistentObjectStore::open(backend).unwrap();
-    assert_eq!(reopened.get(&value.content_id().unwrap()).unwrap(), value);
-}
-
-#[test]
 fn host_persistent_index_is_disposable_and_rebuildable() {
     let port = Arc::new(TestPort::default());
     let backend = HostDirJournalBackend::open(port, capabilities(), 20).unwrap();
@@ -762,6 +745,40 @@ fn host_persistent_index_is_disposable_and_rebuildable() {
 }
 
 mod native;
+```
+
+### `feature/sim-storage/persistent-semantic-objects`
+
+Specimen `spec-test/sim-storage/crates/sim-lib-journal/tests/persistent_objects` is checked by `cargo test`.
+
+Source `crates/sim-lib-journal/tests/persistent_objects.rs`:
+
+```rust
+use std::sync::Arc;
+
+use sim_kernel::{Datum, Symbol};
+use sim_lib_journal::{MemoryBackend, PersistentObjectStore, PersistentSemanticObjects};
+
+// conformance: persistent Datums retain separate semantic and storage identity.
+
+#[test]
+fn owned_values_keep_semantic_and_storage_identity_distinct_across_reopen() {
+    let backend = Arc::new(MemoryBackend::new());
+    let mut store = PersistentObjectStore::open(backend.clone()).unwrap();
+    let value = Datum::Node {
+        tag: Symbol::qualified("example", "evidence-set-v1"),
+        fields: vec![(Symbol::new("members"), Datum::Vector(vec![]))],
+    };
+
+    let reference = store.put(value.clone()).unwrap();
+    assert_ne!(reference.meaning, reference.storage);
+    assert_eq!(store.get(&reference.meaning).unwrap(), value);
+    assert_eq!(store.rebuild_index().unwrap(), vec![reference.clone()]);
+
+    drop(store);
+    let reopened = PersistentObjectStore::open(backend).unwrap();
+    assert_eq!(reopened.get(&reference.meaning).unwrap(), value);
+}
 ```
 
 ### `feature/sim-storage/mutual-copied-projection`

@@ -45,6 +45,9 @@ owner = "crate/sim-lib-journal"
 audiences = ["code", "framework"]
 guidance = "Open PersistentObjectStore over the same JournalBackend used for durable facts. Put returns a StoredDatumRef containing separate meaning and storage ids; get returns an owned Datum and rechecks its meaning. Treat the semantic-to-storage index as derived: rebuild and verify it after index loss, and retain a journal root before treating an object as durable execution evidence."
 claims_anchors = ["anchor/rustdoc/sim-lib-journal/persistent-semantic-objects"]
+claims_specimens = [
+  "spec-test/sim-storage/crates/sim-lib-journal/tests/persistent_objects",
+]
 supports = ["feature/sim-storage/atomic-content-journal"]
 
 [[route]]
