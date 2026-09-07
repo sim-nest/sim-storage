@@ -18,7 +18,7 @@ This generated lane consumes `docs/generated/sim-index-fragment.sx`. Global inde
 | Feature | Subject | Specimens | Summary |
 | --- | --- | ---: | --- |
 | `feature/sim-storage/artifact-facet-law` | `crate/sim-artifact-facet` | 1 | Classify and merge exact base, observed, and intended artifact images under singular owner, region, generated-owner, disclosure, and bounded merge declarations. |
-| `feature/sim-storage/atomic-content-journal` | `crate/sim-lib-journal` | 1 | Crash-durably publish immutable content and atomically advance one gapless, fenced journal head with bounded verified reopen and disposable read-only projections. |
+| `feature/sim-storage/atomic-content-journal` | `crate/sim-lib-journal` | 1 | Crash-durably publish immutable content and atomically advance one gapless, fenced journal head with bounded verified reopen, internally consistent semantic snapshots, and disposable read-only projections. |
 | `feature/sim-storage/persistent-semantic-objects` | `crate/sim-lib-journal` | 1 | Persist canonical Datums over the journal object backend while keeping semantic identities distinct from exact-byte storage locators. |
 | `feature/sim-storage/mutual-copied-projection` | `crate/sim-mutual-projection` | 1 | Copy one Shape-admitted fact and provenance between opaque peer archives only after two independent acceptances, with expiry, revocation, and minimum tombstones. |
 | `feature/sim-storage/sealed-table-decorator` | `crate/sim-table-sealed` | 1 | Wrap Table/Dir storage with authenticated encryption and manage crash-safe, independently granted generations, wrapped-only backups, recovery, and bounded crypto-erasure evidence. |
@@ -323,6 +323,29 @@ fn replay_survives_deleting_every_projection() {
         vec![first, second]
     );
     assert_eq!(journal.verify().unwrap().object_ids.len(), 2);
+}
+
+#[test]
+fn verified_snapshot_binds_entries_and_semantic_payloads_to_one_read() {
+    let journal = Journal::new(MemoryBackend::new());
+    let lease = journal.acquire_lease().unwrap();
+    let value = Datum::Node {
+        tag: Symbol::qualified("example", "semantic-value-v1"),
+        fields: vec![(Symbol::new("answer"), Datum::String("forty-two".into()))],
+    };
+    let object = JournalObject::from_datum(value.clone()).unwrap();
+    let fact = entry(0, None, &object);
+    let expected_id = object.id.clone();
+    let expected_entry = fact.clone();
+    journal
+        .publish(&lease, None, vec![object], vec![fact])
+        .unwrap();
+
+    let snapshot = journal.verified_snapshot().unwrap();
+    assert_eq!(snapshot.entries(), &[expected_entry]);
+    assert_eq!(snapshot.datum(&expected_id), Some(&value));
+    assert_eq!(snapshot.datums().len(), 1);
+    assert_eq!(snapshot.head().unwrap().sequence, 0);
 }
 
 #[test]

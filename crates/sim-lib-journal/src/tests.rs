@@ -53,6 +53,29 @@ fn replay_survives_deleting_every_projection() {
 }
 
 #[test]
+fn verified_snapshot_binds_entries_and_semantic_payloads_to_one_read() {
+    let journal = Journal::new(MemoryBackend::new());
+    let lease = journal.acquire_lease().unwrap();
+    let value = Datum::Node {
+        tag: Symbol::qualified("example", "semantic-value-v1"),
+        fields: vec![(Symbol::new("answer"), Datum::String("forty-two".into()))],
+    };
+    let object = JournalObject::from_datum(value.clone()).unwrap();
+    let fact = entry(0, None, &object);
+    let expected_id = object.id.clone();
+    let expected_entry = fact.clone();
+    journal
+        .publish(&lease, None, vec![object], vec![fact])
+        .unwrap();
+
+    let snapshot = journal.verified_snapshot().unwrap();
+    assert_eq!(snapshot.entries(), &[expected_entry]);
+    assert_eq!(snapshot.datum(&expected_id), Some(&value));
+    assert_eq!(snapshot.datums().len(), 1);
+    assert_eq!(snapshot.head().unwrap().sequence, 0);
+}
+
+#[test]
 fn stale_fence_wrong_previous_gap_and_missing_payload_are_rejected() {
     let journal = Journal::new(MemoryBackend::new());
     let stale = journal.acquire_lease().unwrap();

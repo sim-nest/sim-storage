@@ -26,10 +26,10 @@ claims_specimens = ["spec-test/sim-storage/crates/sim-artifact-facet/tests/facet
 [[feature]]
 id = "feature/sim-storage/atomic-content-journal"
 title = "Atomic content journal"
-summary = "Crash-durably publish immutable content and atomically advance one gapless, fenced journal head with bounded verified reopen and disposable read-only projections."
+summary = "Crash-durably publish immutable content and atomically advance one gapless, fenced journal head with bounded verified reopen, internally consistent semantic snapshots, and disposable read-only projections."
 owner = "crate/sim-lib-journal"
 audiences = ["code", "framework"]
-guidance = "Compose this domain-free journal for durable facts. New entries are canonical journal/entry-v2 Datums and payload ids name semantic values; storage ids and entry locators remain inside the backend. Bind HostDirPort through HostDirJournalBackend only when its capability report attests linearizable CAS and durable publication. Opening a retained SIMJSTATE1 prefix verifies its exact old byte law and projects only canonical entries; the first writer atomically selects a fresh isolated v2 namespace."
+guidance = "Compose this domain-free journal for durable facts. New entries are canonical journal/entry-v2 Datums and payload ids name semantic values; storage ids and entry locators remain inside the backend. Reduce a journal with payload meaning through Journal::verified_snapshot so entries and canonical Datums come from one verified backend read. Bind HostDirPort through HostDirJournalBackend only when its capability report attests linearizable CAS and durable publication. Opening a retained SIMJSTATE1 prefix verifies its exact old byte law and projects only canonical entries; the first writer atomically selects a fresh isolated v2 namespace."
 claims_anchors = [
   "anchor/crate/sim-lib-journal",
 ]

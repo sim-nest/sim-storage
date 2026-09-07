@@ -17,6 +17,7 @@ mod object;
 mod persistent;
 mod projection;
 mod replay;
+mod snapshot;
 mod verify;
 
 pub use backend::{Admission, JournalBackend, StoredState};
@@ -35,6 +36,7 @@ pub use persistent::{
 };
 pub use projection::{DirProjection, ProjectionRow, TableProjection};
 pub use replay::{Replay, replay};
+pub use snapshot::VerifiedSnapshot;
 pub use verify::{JournalError, Verification};
 
 use sim_kernel::{ContentId, Symbol};
@@ -95,6 +97,15 @@ impl<B: JournalBackend> Journal<B> {
     /// Replays verified entries in sequence order.
     pub fn replay(&self) -> Result<Replay, JournalError> {
         replay(self.backend.read_state()?)
+    }
+
+    /// Reads and verifies one internally consistent semantic snapshot.
+    ///
+    /// Consumers that must reduce entries together with their payload values
+    /// use this method so both come from the same backend read. The returned
+    /// value exposes no physical storage identity or mutable backend state.
+    pub fn verified_snapshot(&self) -> Result<VerifiedSnapshot, JournalError> {
+        VerifiedSnapshot::from_state(self.backend.read_state()?)
     }
 
     /// Creates a detached, read-only table projection.
