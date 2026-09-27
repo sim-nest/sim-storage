@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! Domain-free atomic journal behavior over content-addressed objects.
 //!
 //! A journal publishes immutable objects before making entries visible and
@@ -5,6 +10,7 @@
 //! implement [`JournalBackend::admit`]; callers use [`Journal`] so the gapless,
 //! closure, redelivery, and replay laws are enforced once.
 
+mod admission;
 mod backend;
 mod datum_codec;
 mod entry;
@@ -20,6 +26,7 @@ mod replay;
 mod snapshot;
 mod verify;
 
+pub use admission::{AdmissionDisposition, CommitAction, GuardedAdmission};
 pub use backend::{Admission, JournalBackend, StoredState};
 pub use entry::JournalEntry;
 pub use head::JournalHead;
@@ -74,19 +81,8 @@ impl<B: JournalBackend> Journal<B> {
         objects: Vec<JournalObject>,
         entries: Vec<JournalEntry>,
     ) -> Result<JournalHead, JournalError> {
-        if entries.is_empty() {
-            return Err(JournalError::EmptyBatch);
-        }
-        let before = self.backend.read_state()?;
-        verify::verify_state(&before)?;
-        verify::verify_batch(&before, expected, &objects, &entries)?;
-        let head = self.backend.admit(Admission {
-            fence: lease.fence,
-            expected: expected.cloned(),
-            objects,
-            entries: entries.clone(),
-        })?;
-        Ok(head)
+        self.backend
+            .admit(self.verified_admission(lease, expected, objects, entries)?)
     }
 
     /// Reads and verifies the complete journal closure.

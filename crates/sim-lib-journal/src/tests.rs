@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // conformance: immutable journal objects and fenced heads replay exactly after reopen.
 
 use crate::*;
@@ -235,6 +240,8 @@ fn every_short_two_writer_interleaving_has_one_sequence_zero_winner() {
 
 #[derive(Default)]
 struct TestPort {
+    admission: Mutex<()>,
+    guarded: bool,
     files: Mutex<BTreeMap<Vec<String>, Vec<u8>>>,
     dirs: Mutex<BTreeSet<Vec<String>>>,
 }
@@ -315,25 +322,34 @@ impl HostDirPort for TestPort {
         path: &[String],
         expected: Option<&[u8]>,
         replacement: Option<&[u8]>,
-        _: &dyn Cancellation,
+        cancel: &dyn Cancellation,
     ) -> Result<HostCompareExchange, HostDirError> {
-        let mut files = self.files.lock().unwrap();
-        let observed = files.get(path).cloned();
-        let exchanged = observed.as_deref() == expected;
-        if exchanged {
-            match replacement {
-                Some(v) => {
-                    files.insert(path.to_vec(), v.to_vec());
-                }
-                None => {
-                    files.remove(path);
-                }
-            }
+        let _guard = self.admission.lock().unwrap();
+        self.exchange(path, expected, replacement, cancel)
+    }
+    fn supports_guarded_compare_exchange(&self) -> bool {
+        self.guarded
+    }
+    fn compare_exchange_then(
+        &self,
+        path: &[String],
+        expected: Option<&[u8]>,
+        replacement: Option<&[u8]>,
+        cancel: &dyn Cancellation,
+        action: &mut dyn CommitAction,
+    ) -> Result<HostCompareExchange, HostDirError> {
+        if !self.guarded {
+            return Err(HostDirError::new(
+                HostDirErrorKind::Unsupported,
+                "not supported",
+            ));
         }
-        Ok(HostCompareExchange {
-            exchanged,
-            observed,
-        })
+        let _guard = self.admission.lock().unwrap();
+        let result = self.exchange(path, expected, replacement, cancel)?;
+        if result.exchanged {
+            action.after_commit();
+        }
+        Ok(result)
     }
     fn remove_file(&self, path: &[String]) -> Result<(), HostDirError> {
         self.files.lock().unwrap().remove(path);
@@ -494,4 +510,6 @@ fn host_persistent_index_is_disposable_and_rebuildable() {
     assert_eq!(store.get(&reference.meaning).unwrap(), datum);
 }
 
+mod admission_context;
+mod guarded;
 mod native;

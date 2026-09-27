@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-journal"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 license = "MPL-2.0"
 description = "Domain-free atomic content journal contract for SIM."
@@ -16,7 +16,7 @@ reason = "The public persistent-object and journal laws are exercised by the cra
 [dependencies]
 sha2 = "0.10"
 sim-kernel = { version = "0.4.0" }
-sim-storage-port = { version = "0.2.0", path = "../sim-storage-port" }
+sim-storage-port = { version = "0.2.1", path = "../sim-storage-port" }
 thiserror = "2"
 
 [lints]

@@ -1,8 +1,16 @@
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 use crate::native_codec::*;
+mod admission;
+mod failpoint;
 use crate::{
     Admission, JournalBackend, JournalEntry, JournalError, JournalHead, JournalObject, Lease,
     StoredDatumRef, StoredState,
 };
+use failpoint::{AdmissionFailHook, FailHook};
 use sha2::{Digest, Sha256};
 use sim_kernel::{ContentId, Datum};
 use sim_storage_port::{HostDirErrorKind, HostDirPort, NeverCancel};
@@ -15,7 +23,6 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-type FailHook = Arc<dyn Fn(Failpoint) -> bool + Send + Sync>;
 static NAMESPACE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Crash-durable journal composition over the canonical host-backed Table/Dir port.
@@ -29,6 +36,7 @@ pub struct HostDirJournalBackend {
     capabilities: BackendCapabilities,
     work_bound: usize,
     fail: Option<FailHook>,
+    admission_fail: Option<AdmissionFailHook>,
 }
 
 impl HostDirJournalBackend {
@@ -46,18 +54,10 @@ impl HostDirJournalBackend {
             capabilities,
             work_bound,
             fail: None,
+            admission_fail: None,
         };
         backend.read_state()?;
         Ok(backend)
-    }
-
-    /// Installs a deterministic crash hook for conformance models.
-    pub fn with_failpoint_hook(
-        mut self,
-        hook: impl Fn(Failpoint) -> bool + Send + Sync + 'static,
-    ) -> Self {
-        self.fail = Some(Arc::new(hook));
-        self
     }
 
     /// Reports the capability evidence used to admit or refuse writes.
@@ -74,14 +74,6 @@ impl HostDirJournalBackend {
             return Ok(None);
         }
         Ok(Some(decode_envelope(&bytes)?))
-    }
-
-    fn trip(&self, point: Failpoint) -> Result<(), JournalError> {
-        if self.fail.as_ref().is_some_and(|hook| hook(point)) {
-            Err(JournalError::InjectedCrash(point.label()))
-        } else {
-            Ok(())
-        }
     }
 
     fn write_capable(&self) -> Result<(), JournalError> {
@@ -502,92 +494,16 @@ impl JournalBackend for HostDirJournalBackend {
     }
 
     fn admit(&self, admission: Admission) -> Result<JournalHead, JournalError> {
-        self.write_capable()?;
-        self.ensure_layout()?;
-        let observed = self.state_bytes()?.ok_or(JournalError::WriteRefused(
-            "acquire a v2 lease before append",
-        ))?;
-        if observed.starts_with(b"SIMJSTATE1") {
-            return Err(JournalError::WriteRefused(
-                "acquire a v2 lease before append",
-            ));
-        }
-        let mut envelope = decode_envelope(&observed)?;
-        if envelope.fence != admission.fence {
-            return Err(JournalError::StaleLease);
-        }
-        if envelope.head != admission.expected {
-            if admission.entries.last().is_some_and(|entry| {
-                envelope
-                    .head
-                    .as_ref()
-                    .is_some_and(|head| head.entry == entry.id)
-            }) {
-                return envelope.head.ok_or(JournalError::WrongHead);
-            }
-            return Err(JournalError::WrongHead);
-        }
-        self.trip(Failpoint::BeforeObjectPublish)?;
-        let mut references = BTreeMap::new();
-        for object in &admission.objects {
-            let reference = self.put_object(object)?;
-            references.insert(reference.meaning.clone(), reference);
-        }
-        self.trip(Failpoint::AfterObjectPublish)?;
-        let mut previous_location = envelope.head_location.clone();
-        let mut last_location = None;
-        for entry in &admission.entries {
-            let mut payloads = Vec::with_capacity(entry.payloads.len());
-            for meaning in &entry.payloads {
-                let reference = match references.get(meaning) {
-                    Some(reference) => reference.clone(),
-                    None => self.find_object(meaning)?.0,
-                };
-                payloads.push(reference);
-            }
-            let physical = PhysicalEntry {
-                entry: entry.clone(),
-                previous_location: previous_location.clone(),
-                payloads,
-            };
-            let bytes = encode_v2_entry(&physical);
-            let storage = crate::object::storage_id(&bytes);
-            let location = EntryLocation {
-                namespace: envelope.namespace.clone(),
-                sequence: entry.sequence,
-                entry: entry.id.clone(),
-                storage,
-            };
-            ensure_entry_dirs(self.port.as_ref(), &location)?;
-            self.put_immutable(&entry_path(&location), &bytes)?;
-            previous_location = Some(location.clone());
-            last_location = Some(location);
-        }
-        self.trip(Failpoint::AfterDurabilityReceipt)?;
-        let last = admission.entries.last().ok_or(JournalError::EmptyBatch)?;
-        let new_head = JournalHead {
-            sequence: last.sequence,
-            entry: last.id.clone(),
-        };
-        envelope.head = Some(new_head.clone());
-        envelope.head_location = last_location;
-        self.trip(Failpoint::BeforeCas)?;
-        let replacement = encode_envelope(&envelope);
-        let result = self
-            .port
-            .compare_exchange(
-                &["state".into()],
-                Some(&observed),
-                Some(&replacement),
-                &NeverCancel,
-            )
-            .map_err(port_error)?;
-        if !result.exchanged {
-            return Err(JournalError::WrongHead);
-        }
-        self.trip(Failpoint::AfterCas)?;
-        self.trip(Failpoint::BeforeAcknowledgement)?;
-        Ok(new_head)
+        self.admit_with_action(admission, None)
+            .map(|result| result.head)
+    }
+
+    fn admit_then(
+        &self,
+        admission: Admission,
+        action: &mut dyn crate::CommitAction,
+    ) -> Result<crate::GuardedAdmission, JournalError> {
+        self.admit_with_action(admission, Some(action))
     }
 
     fn put_datum(&self, object: JournalObject) -> Result<StoredDatumRef, JournalError> {
