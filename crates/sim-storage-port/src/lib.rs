@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 //! Portable contracts between SIM's Table/Dir policy and host storage.
@@ -6,6 +11,11 @@
 //! handles, synchronization, and error translation belong to platform adapters.
 
 use std::{error::Error, fmt};
+
+mod commit;
+pub use commit::CommitAction;
+mod observation;
+pub use observation::HostDirObservation;
 
 /// Result returned by a host-directory adapter.
 pub type PortResult<T> = Result<T, HostDirError>;
@@ -130,6 +140,33 @@ pub trait HostDirPort: Send + Sync {
         Err(HostDirError::new(
             HostDirErrorKind::Unsupported,
             "host directory compare-exchange unsupported",
+        ))
+    }
+    /// Whether this adapter implements the guarded compare-exchange contract.
+    fn supports_guarded_compare_exchange(&self) -> bool {
+        false
+    }
+    /// Commits a matching exchange, then invokes `action` before releasing
+    /// exclusion against ordinary and guarded exchanges on the same leaf.
+    ///
+    /// Native adapters invoke the action only after replacement and containing
+    /// directory durability. Modeled adapters supply ordering, not durability.
+    /// A comparison miss or pre-commit error never invokes the action. Errors
+    /// after commit can leave the action's outcome uncertain. Callers must not
+    /// infer non-execution from an error or retry an uncertain external effect.
+    /// Unsupported adapters refuse without modifying the leaf or invoking the
+    /// action; composing ordinary compare-exchange with a later action is invalid.
+    fn compare_exchange_then(
+        &self,
+        _path: &[String],
+        _expected: Option<&[u8]>,
+        _replacement: Option<&[u8]>,
+        _cancel: &dyn Cancellation,
+        _action: &mut dyn CommitAction,
+    ) -> PortResult<HostCompareExchange> {
+        Err(HostDirError::new(
+            HostDirErrorKind::Unsupported,
+            "guarded host directory compare-exchange unsupported",
         ))
     }
     /// Removes one regular file.
