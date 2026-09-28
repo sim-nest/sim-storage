@@ -4,6 +4,7 @@
 
 | Package | Group | Features | Workspace feature edges |
 | --- | --- | ---: | ---: |
+| `sim-artifact-facet` | `workspace` | 0 | 0 |
 | `sim-lib-journal` | `workspace` | 0 | 0 |
 | `sim-lib-relation-cli` | `workspace` | 0 | 0 |
 | `sim-list-cell` | `workspace` | 0 | 0 |

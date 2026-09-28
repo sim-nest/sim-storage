@@ -1,6 +1,11 @@
+// SPDX-License-Identifier: MPL-2.0
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 use crate::{
-    Admission, JournalBackend, JournalError, JournalHead, JournalObject, Lease, StoredDatumRef,
-    StoredState,
+    Admission, AdmissionDisposition, CommitAction, GuardedAdmission, JournalBackend, JournalError,
+    JournalHead, JournalObject, Lease, StoredDatumRef, StoredState,
 };
 use sim_kernel::{ContentId, Datum};
 use std::sync::{Mutex, PoisonError};
@@ -14,6 +19,7 @@ struct Inner {
 /// Deterministic law-reference backend. It is deliberately not durable.
 #[derive(Default)]
 pub struct MemoryBackend {
+    admission: Mutex<()>,
     inner: Mutex<Inner>,
 }
 
@@ -21,29 +27,7 @@ impl MemoryBackend {
     pub fn new() -> Self {
         Self::default()
     }
-}
-
-impl JournalBackend for MemoryBackend {
-    fn acquire_lease(&self) -> Result<Lease, JournalError> {
-        let mut inner = self
-            .inner
-            .lock()
-            .map_err(|_: PoisonError<_>| JournalError::Backend("memory lock poisoned".into()))?;
-        inner.fence = inner
-            .fence
-            .checked_add(1)
-            .ok_or_else(|| JournalError::Backend("fence exhausted".into()))?;
-        Ok(Lease { fence: inner.fence })
-    }
-    fn read_state(&self) -> Result<StoredState, JournalError> {
-        Ok(self
-            .inner
-            .lock()
-            .map_err(|_: PoisonError<_>| JournalError::Backend("memory lock poisoned".into()))?
-            .state
-            .clone())
-    }
-    fn admit(&self, admission: Admission) -> Result<JournalHead, JournalError> {
+    fn commit_admission(&self, admission: Admission) -> Result<GuardedAdmission, JournalError> {
         let mut inner = self
             .inner
             .lock()
@@ -60,7 +44,10 @@ impl JournalBackend for MemoryBackend {
                 .all(|entry| inner.state.entries.get(&entry.sequence) == Some(entry))
                 && !admission.entries.is_empty();
             if exact {
-                return inner.state.head.clone().ok_or(JournalError::WrongHead);
+                return Ok(GuardedAdmission {
+                    head: inner.state.head.clone().ok_or(JournalError::WrongHead)?,
+                    disposition: AdmissionDisposition::AlreadyCommittedActionNotInvoked,
+                });
             }
             if admission
                 .entries
@@ -106,7 +93,56 @@ impl JournalBackend for MemoryBackend {
             entry: entry.id.clone(),
         };
         inner.state.head = Some(head.clone());
-        Ok(head)
+        Ok(GuardedAdmission {
+            head,
+            disposition: AdmissionDisposition::CommittedActionInvoked,
+        })
+    }
+}
+
+impl JournalBackend for MemoryBackend {
+    fn acquire_lease(&self) -> Result<Lease, JournalError> {
+        let _guard = self
+            .admission
+            .lock()
+            .map_err(|_| JournalError::Backend("memory admission lock poisoned".into()))?;
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_: PoisonError<_>| JournalError::Backend("memory lock poisoned".into()))?;
+        inner.fence = inner
+            .fence
+            .checked_add(1)
+            .ok_or_else(|| JournalError::Backend("fence exhausted".into()))?;
+        Ok(Lease { fence: inner.fence })
+    }
+    fn read_state(&self) -> Result<StoredState, JournalError> {
+        Ok(self
+            .inner
+            .lock()
+            .map_err(|_: PoisonError<_>| JournalError::Backend("memory lock poisoned".into()))?
+            .state
+            .clone())
+    }
+    fn admit(&self, admission: Admission) -> Result<JournalHead, JournalError> {
+        self.admit_then(admission, &mut || {})
+            .map(|result| result.head)
+    }
+
+    fn admit_then(
+        &self,
+        admission: Admission,
+        action: &mut dyn CommitAction,
+    ) -> Result<GuardedAdmission, JournalError> {
+        let _guard = self
+            .admission
+            .lock()
+            .map_err(|_| JournalError::Backend("memory admission lock poisoned".into()))?;
+        let result = self.commit_admission(admission)?;
+        if result.disposition == AdmissionDisposition::CommittedActionInvoked {
+            action.after_commit();
+        }
+        Ok(result)
     }
 
     fn put_datum(&self, object: JournalObject) -> Result<StoredDatumRef, JournalError> {
@@ -121,8 +157,13 @@ impl JournalBackend for MemoryBackend {
             .lock()
             .map_err(|_: PoisonError<_>| JournalError::Backend("memory lock poisoned".into()))?;
         match inner.state.datums.get(&object.id) {
-            Some(value) if value != object.datum() => return Err(JournalError::ConflictingObject),
-            _ => {
+            Some(value) => {
+                let existing = JournalObject::from_datum(value.clone())?;
+                if existing.id != object.id || existing.bytes != object.bytes {
+                    return Err(JournalError::ConflictingObject);
+                }
+            }
+            None => {
                 let datum = object.datum().clone();
                 inner.state.objects.insert(object.id.clone(), object.bytes);
                 inner.state.datums.insert(object.id, datum);

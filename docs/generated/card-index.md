@@ -5,6 +5,7 @@
 | Card | Kind | Owner | Summary |
 | --- | --- | --- | --- |
 | `browse/catalog` | `browse-root` | `workspace` | root browse catalog |
+| `cookbook/artifact-facet` | `cookbook-recipe` | `sim-artifact-facet` | Role-safe pure three-way artifact comparison descriptors. |
 | `cookbook/storage/table-http` | `cookbook-recipe` | `sim-table-http` | Direct HTTP resources addressed through the table directory surface. |
 | `cookbook/storage/table-mount` | `cookbook-recipe` | `sim-table-mount` | Compose independently owned Table and Dir backends behind one directory view. |
 | `cookbook/storage/table-sealed` | `cookbook-recipe` | `sim-table-sealed` | Use authenticated encrypted lanes through the ordinary Table/Dir surface. |

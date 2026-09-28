@@ -4,6 +4,7 @@
 
 | Package | Group | Summary |
 | --- | --- | --- |
+| `sim-artifact-facet` | `workspace` | Pure artifact-facet comparison and bounded three-way merge. |
 | `sim-lib-journal` | `workspace` | Domain-free atomic journal behavior over content-addressed objects. |
 | `sim-lib-relation-cli` | `workspace` | Loadable command surface for checked relational data. |
 | `sim-list-cell` | `workspace` | Cell-based list backend for the SIM constellation. |
