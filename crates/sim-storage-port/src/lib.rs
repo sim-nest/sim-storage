@@ -130,9 +130,11 @@ pub trait HostDirPort: Send + Sync {
     /// Contract for implementors: `Ok` is the COMPLETE directory with
     /// `len() <= max_entries`. A directory with more than `max_entries`
     /// members fails with [`HostDirErrorKind::QuotaExceeded`]; it is never
-    /// truncated into a successful result. Enumeration and allocation must stop
-    /// at the bound, so an adapter must not materialize the whole directory
-    /// (for example by calling [`Self::list`]) before checking it.
+    /// truncated into a successful result. An adapter may observe one entry
+    /// beyond the bound (even at `max_entries == 0`) to detect excess, but must
+    /// retain at most `max_entries` entries and stop without enumerating the
+    /// remainder. It must not materialize the whole directory (for example by
+    /// calling [`Self::list`]) before checking it.
     ///
     /// A type implementing both this trait and [`crate::HostDirObservation`]
     /// shares the method name; call it with explicit trait syntax.
