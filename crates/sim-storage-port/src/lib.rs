@@ -123,6 +123,27 @@ pub trait HostDirPort: Send + Sync {
     fn label(&self) -> &str;
     /// Lists one directory in deterministic name order.
     fn list(&self, dir: &[String]) -> PortResult<Vec<HostEntry>>;
+    /// Lists one directory in deterministic name order within an explicit
+    /// member bound.
+    ///
+    /// The default refuses so callers needing a real bound fail closed
+    /// instead of silently falling back to [`Self::list`]'s unbounded
+    /// enumeration. A caller bounding recursive traversal (e.g. a depth/
+    /// directory-count guard around repeated [`Self::list`] calls) MUST use
+    /// this instead of [`Self::list`] once an adapter supports it: unlike
+    /// [`Self::list`], which some native adapters implement by fully
+    /// materializing and sorting an entire directory before returning,
+    /// `list_bounded` lets the adapter itself stop enumeration at the
+    /// storage boundary -- a local post-hoc count check on an already-fully-
+    /// materialized `Vec` cannot bound the underlying enumeration cost.
+    /// Mirrors [`crate::HostDirObservation::list_bounded`]'s exact same
+    /// shape on the sibling read-only-view trait.
+    fn list_bounded(&self, _dir: &[String], _max_entries: usize) -> PortResult<Vec<HostEntry>> {
+        Err(HostDirError::new(
+            HostDirErrorKind::Unsupported,
+            "bounded directory listing unsupported",
+        ))
+    }
     /// Returns metadata for one relative entry, or `None` when absent.
     fn metadata(&self, path: &[String]) -> PortResult<Option<HostEntry>>;
     /// Reads one regular file.
@@ -177,4 +198,61 @@ pub trait HostDirPort: Send + Sync {
     fn remove_dir_all(&self, path: &[String]) -> PortResult<()>;
     /// Opens a child view sharing the same mount and quota.
     fn child(&self, name: &str) -> PortResult<std::sync::Arc<dyn HostDirPort>>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Adapter that implements only the required methods, so every defaulted
+    /// method is the trait's own.
+    struct Bare;
+
+    fn refused<T>() -> PortResult<T> {
+        Err(HostDirError::new(HostDirErrorKind::Unsupported, "bare"))
+    }
+
+    impl HostDirPort for Bare {
+        fn label(&self) -> &str {
+            "bare"
+        }
+        fn list(&self, _dir: &[String]) -> PortResult<Vec<HostEntry>> {
+            Ok(Vec::new())
+        }
+        fn metadata(&self, _path: &[String]) -> PortResult<Option<HostEntry>> {
+            refused()
+        }
+        fn read(&self, _path: &[String]) -> PortResult<Vec<u8>> {
+            refused()
+        }
+        fn replace(
+            &self,
+            _path: &[String],
+            _bytes: &[u8],
+            _cancel: &dyn Cancellation,
+        ) -> PortResult<()> {
+            refused()
+        }
+        fn remove_file(&self, _path: &[String]) -> PortResult<()> {
+            refused()
+        }
+        fn create_dir(&self, _path: &[String]) -> PortResult<()> {
+            refused()
+        }
+        fn remove_dir_all(&self, _path: &[String]) -> PortResult<()> {
+            refused()
+        }
+        fn child(&self, _name: &str) -> PortResult<std::sync::Arc<dyn HostDirPort>> {
+            refused()
+        }
+    }
+
+    #[test]
+    fn default_list_bounded_fails_closed_instead_of_falling_back_to_list() {
+        let port = Bare;
+        // `list` succeeds on this adapter, so a silent fallback would return Ok.
+        assert!(port.list(&[]).is_ok());
+        let err = port.list_bounded(&[], 1).expect_err("default must refuse");
+        assert_eq!(err.kind, HostDirErrorKind::Unsupported);
+    }
 }
