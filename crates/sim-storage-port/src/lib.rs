@@ -161,6 +161,21 @@ pub trait HostDirPort: Send + Sync {
     fn metadata(&self, path: &[String]) -> PortResult<Option<HostEntry>>;
     /// Reads one regular file.
     fn read(&self, path: &[String]) -> PortResult<Vec<u8>>;
+    /// Reads one regular file without ever returning or allocating more than
+    /// `max_bytes`.
+    ///
+    /// Contract for implementors: a file longer than `max_bytes`, including one
+    /// that grows during the read, fails with [`HostDirErrorKind::QuotaExceeded`];
+    /// it is never truncated into a successful result, and the adapter must stop
+    /// reading at `max_bytes + 1` rather than materializing the whole file. The
+    /// default refuses, so a caller needing a real bound fails closed instead of
+    /// falling back to [`Self::read`].
+    fn read_bounded(&self, _path: &[String], _max_bytes: usize) -> PortResult<Vec<u8>> {
+        Err(HostDirError::new(
+            HostDirErrorKind::Unsupported,
+            "bounded file read unsupported",
+        ))
+    }
     /// Atomically replaces one regular file and durably commits its parent.
     fn replace(&self, path: &[String], bytes: &[u8], cancel: &dyn Cancellation) -> PortResult<()>;
     /// Atomically replaces or deletes a leaf iff its bytes equal `expected`.
@@ -266,6 +281,8 @@ mod tests {
         // `list` succeeds on this adapter, so a silent fallback would return Ok.
         assert!(port.list(&[]).is_ok());
         let err = port.list_bounded(&[], 1).expect_err("default must refuse");
+        assert_eq!(err.kind, HostDirErrorKind::Unsupported);
+        let err = port.read_bounded(&[], 1).expect_err("default must refuse");
         assert_eq!(err.kind, HostDirErrorKind::Unsupported);
     }
 }
