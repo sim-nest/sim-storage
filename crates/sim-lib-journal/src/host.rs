@@ -10,6 +10,7 @@ use crate::{
     Admission, JournalBackend, JournalEntry, JournalError, JournalHead, JournalObject, Lease,
     StoredDatumRef, StoredState,
 };
+#[cfg(any(test, feature = "fault-injection"))]
 use failpoint::{AdmissionFailHook, FailHook};
 use sha2::{Digest, Sha256};
 use sim_kernel::{ContentId, Datum};
@@ -35,7 +36,9 @@ pub struct HostDirJournalBackend {
     port: Arc<dyn HostDirPort>,
     capabilities: BackendCapabilities,
     work_bound: usize,
+    #[cfg(any(test, feature = "fault-injection"))]
     fail: Option<FailHook>,
+    #[cfg(any(test, feature = "fault-injection"))]
     admission_fail: Option<AdmissionFailHook>,
 }
 
@@ -53,7 +56,9 @@ impl HostDirJournalBackend {
             port,
             capabilities,
             work_bound,
+            #[cfg(any(test, feature = "fault-injection"))]
             fail: None,
+            #[cfg(any(test, feature = "fault-injection"))]
             admission_fail: None,
         };
         backend.read_state()?;

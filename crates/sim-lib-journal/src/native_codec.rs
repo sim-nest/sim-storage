@@ -71,6 +71,7 @@ pub enum Failpoint {
 }
 
 impl Failpoint {
+    #[cfg(any(test, feature = "fault-injection"))]
     pub(crate) fn label(self) -> &'static str {
         match self {
             Self::BeforePrefixDescriptor => "before-prefix-descriptor",
