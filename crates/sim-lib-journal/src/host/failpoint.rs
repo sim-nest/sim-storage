@@ -58,7 +58,9 @@ impl HostDirJournalBackend {
     /// Gated exactly like [`with_failpoint_hook`](Self::with_failpoint_hook): absent
     /// from every build that enables neither `cfg(test)` nor `fault-injection`,
     /// so an `AfterCas` refusal that commits data while suppressing the
-    /// continuation cannot happen in a shipped binary.
+    /// continuation cannot happen in a binary built without them. Feature
+    /// unification or `--all-features` can still enable `fault-injection`, so a
+    /// release graph must be checked by the release guard.
     #[cfg(any(test, feature = "fault-injection"))]
     pub fn with_admission_failpoint_hook(
         mut self,

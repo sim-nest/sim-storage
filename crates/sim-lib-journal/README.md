@@ -23,11 +23,17 @@ from one verified backend read, without exposing physical storage state.
 
 ## Admission-scoped conformance cuts
 
-`with_failpoint_hook` and `with_admission_failpoint_hook` are `#[cfg(test)]`
-only: they exist for this crate's own conformance test suite and do not
-compile into a normal build, so no consumer of this crate can reach them.
-This section documents that test-internal contract, not a supported public
-API.
+`with_failpoint_hook` and `with_admission_failpoint_hook` exist only under
+`cfg(test)` or the off-by-default `fault-injection` cargo feature. A build
+without either contains no hook state and no setter. The feature exists so a
+separately built, separately digested native acceptance specimen can cut at the
+physical publication boundaries; it is NOT a supported production API.
+
+**Release warning.** Cargo feature unification or `--all-features` in any
+dependent package can enable `fault-injection` for the whole resolved graph.
+A release graph must never enable it: the release path must inspect the
+resolved build (Cargo's JSON compiler-artifact stream) and refuse promotion
+if this crate's artifact lists `fault-injection`.
 
 `HostDirJournalBackend::with_admission_failpoint_hook` borrows the actual
 `Admission` alongside each existing publication `Failpoint`. A trusted
