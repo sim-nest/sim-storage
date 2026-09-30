@@ -33,7 +33,8 @@ pub enum HostDirErrorKind {
     SpecialFile,
     /// Stored bytes or a native name are malformed.
     Malformed,
-    /// The configured storage quota would be exceeded.
+    /// A configured storage quota or caller-supplied enumeration bound would be
+    /// exceeded.
     QuotaExceeded,
     /// The operation was cancelled before commit.
     Cancelled,
@@ -41,7 +42,7 @@ pub enum HostDirErrorKind {
     NotEmpty,
     /// Another native I/O failure occurred.
     Native,
-    /// The adapter cannot provide the requested atomic contract.
+    /// The adapter cannot provide the requested contract or capability.
     Unsupported,
 }
 
@@ -125,6 +126,16 @@ pub trait HostDirPort: Send + Sync {
     fn list(&self, dir: &[String]) -> PortResult<Vec<HostEntry>>;
     /// Lists one directory in deterministic name order within an explicit
     /// member bound.
+    ///
+    /// Contract for implementors: `Ok` is the COMPLETE directory with
+    /// `len() <= max_entries`. A directory with more than `max_entries`
+    /// members fails with [`HostDirErrorKind::QuotaExceeded`]; it is never
+    /// truncated into a successful result. Enumeration and allocation must stop
+    /// at the bound, so an adapter must not materialize the whole directory
+    /// (for example by calling [`Self::list`]) before checking it.
+    ///
+    /// A type implementing both this trait and [`crate::HostDirObservation`]
+    /// shares the method name; call it with explicit trait syntax.
     ///
     /// The default refuses so callers needing a real bound fail closed
     /// instead of silently falling back to [`Self::list`]'s unbounded
