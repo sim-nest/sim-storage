@@ -7,7 +7,18 @@
       "package": "sim-artifact-facet"
     },
     {
-      "features": [],
+      "features": [
+        {
+          "edges": [],
+          "name": "default",
+          "workspace_edges": []
+        },
+        {
+          "edges": [],
+          "name": "fault-injection",
+          "workspace_edges": []
+        }
+      ],
       "group": "workspace",
       "package": "sim-lib-journal"
     },

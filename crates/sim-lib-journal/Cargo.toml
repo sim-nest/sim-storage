@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-journal"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2024"
 license = "MPL-2.0"
 description = "Domain-free atomic content journal contract for SIM."
@@ -12,6 +12,12 @@ homepage = "https://github.com/sim-nest/sim-storage"
 [package.metadata.sim-recipes]
 policy = "rustdoc"
 reason = "The public persistent-object and journal laws are exercised by the crate's checked conformance tests and documented API."
+
+[features]
+default = []
+# Physical publication-boundary fault hooks for separately built native
+# acceptance specimens. Must never be enabled in a release graph.
+fault-injection = []
 
 [dependencies]
 sha2 = "0.10"

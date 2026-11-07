@@ -5,23 +5,25 @@
 
 //! Opt-in conformance cuts over the original native journal publication.
 
-use super::{Admission, Arc, Failpoint, HostDirJournalBackend, JournalError};
+#[cfg(any(test, feature = "fault-injection"))]
+use super::Arc;
+use super::{Admission, Failpoint, HostDirJournalBackend, JournalError};
 
+#[cfg(any(test, feature = "fault-injection"))]
 pub(super) type FailHook = Arc<dyn Fn(Failpoint) -> bool + Send + Sync>;
+#[cfg(any(test, feature = "fault-injection"))]
 pub(super) type AdmissionFailHook = Arc<dyn Fn(Failpoint, &Admission) -> bool + Send + Sync>;
 
 impl HostDirJournalBackend {
     /// Installs a deterministic crash hook for conformance models.
     ///
-    /// Test-only. This crate's own conformance test suite is the only
-    /// intended caller: chaos-testing a real deployment belongs to a
-    /// purpose-built fault-injection layer outside the journal, not a debug
-    /// hook left reachable in core. `#[cfg(test)]` keeps this out of every
-    /// non-test build entirely, so no production caller can ever install one
-    /// -- this is stronger than a runtime check or an off-by-default feature,
-    /// neither of which stop the hook from being reachable in a release
-    /// binary at all.
-    #[cfg(test)]
+    /// Available only under `cfg(test)` or the off-by-default `fault-injection`
+    /// feature. A build without either contains no hook field, no setter and no
+    /// callback branch: durable leaf publication goes straight to the head CAS.
+    /// The feature exists so a separately built, separately digested native
+    /// acceptance specimen can cut at the physical publication boundaries; a
+    /// release graph that enables it must be refused by the release guard.
+    #[cfg(any(test, feature = "fault-injection"))]
     pub fn with_failpoint_hook(
         mut self,
         hook: impl Fn(Failpoint) -> bool + Send + Sync + 'static,
@@ -53,11 +55,13 @@ impl HostDirJournalBackend {
     /// never imply that the action did not run or may be repeated. This is test
     /// instrumentation, not native effect, durability or qualification evidence.
     ///
-    /// Test-only, for the same reason as [`with_failpoint_hook`](Self::with_failpoint_hook):
-    /// `#[cfg(test)]` removes it from every non-test build, so an `AfterCas`
-    /// refusal that commits data while suppressing the continuation can never
-    /// happen outside this crate's own conformance tests.
-    #[cfg(test)]
+    /// Gated exactly like [`with_failpoint_hook`](Self::with_failpoint_hook): absent
+    /// from every build that enables neither `cfg(test)` nor `fault-injection`,
+    /// so an `AfterCas` refusal that commits data while suppressing the
+    /// continuation cannot happen in a binary built without them. Feature
+    /// unification or `--all-features` can still enable `fault-injection`, so a
+    /// release graph must be checked by the release guard.
+    #[cfg(any(test, feature = "fault-injection"))]
     pub fn with_admission_failpoint_hook(
         mut self,
         hook: impl Fn(Failpoint, &Admission) -> bool + Send + Sync + 'static,
@@ -66,6 +70,7 @@ impl HostDirJournalBackend {
         self
     }
 
+    #[cfg(any(test, feature = "fault-injection"))]
     pub(super) fn trip(&self, point: Failpoint) -> Result<(), JournalError> {
         if self.fail.as_ref().is_some_and(|hook| hook(point)) {
             Err(JournalError::InjectedCrash(point.label()))
@@ -74,6 +79,7 @@ impl HostDirJournalBackend {
         }
     }
 
+    #[cfg(any(test, feature = "fault-injection"))]
     pub(super) fn trip_admission(
         &self,
         point: Failpoint,
@@ -89,5 +95,20 @@ impl HostDirJournalBackend {
         } else {
             Ok(())
         }
+    }
+    #[cfg(not(any(test, feature = "fault-injection")))]
+    #[inline(always)]
+    pub(super) fn trip(&self, _point: Failpoint) -> Result<(), JournalError> {
+        Ok(())
+    }
+
+    #[cfg(not(any(test, feature = "fault-injection")))]
+    #[inline(always)]
+    pub(super) fn trip_admission(
+        &self,
+        _point: Failpoint,
+        _admission: &Admission,
+    ) -> Result<(), JournalError> {
+        Ok(())
     }
 }
