@@ -30,6 +30,9 @@ homepage = "https://github.com/sim-nest/sim-storage"
 [workspace.lints.rust]
 unsafe_code = "forbid"
 
+[workspace.metadata.sim]
+docs-command = "cargo run -p xtask -- simdoc"
+
 [patch.crates-io]
 sim-table-db = { path = "crates/sim-table-db" }
 sim-table-sealed = { path = "crates/sim-table-sealed" }
